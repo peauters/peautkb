@@ -36,17 +36,6 @@ F 3 "" H 2000 1350 50  0000 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L kbd:SW_PUSH SW1
-U 1 1 605C75CC
-P 1270 1350
-F 0 "SW1" H 1270 1605 50  0000 C CNN
-F 1 "SW_PUSH" H 1270 1514 50  0000 C CNN
-F 2 "kbd:CherryMX_Hotswap" H 1270 1350 50  0001 C CNN
-F 3 "" H 1270 1350 50  0000 C CNN
-	1    1270 1350
-	1    0    0    -1  
-$EndComp
-$Comp
 L kbd:SW_PUSH SW18
 U 1 1 605D1C8C
 P 4920 1350
@@ -89,17 +78,6 @@ F 2 "kbd:CherryMX_Hotswap" H 5610 1350 50  0001 C CNN
 F 3 "" H 5610 1350 50  0000 C CNN
 	1    5610 1350
 	1    0    0    -1  
-$EndComp
-$Comp
-L Device:D D2
-U 1 1 605FE8A8
-P 1570 1500
-F 0 "D2" V 1616 1420 50  0000 R CNN
-F 1 "D" V 1525 1420 50  0000 R CNN
-F 2 "kbd:D3_SMD_v2" H 1570 1500 50  0001 C CNN
-F 3 "~" H 1570 1500 50  0001 C CNN
-	1    1570 1500
-	0    -1   -1   0   
 $EndComp
 $Comp
 L Device:D D6
@@ -167,13 +145,8 @@ F 3 "~" H 5910 1500 50  0001 C CNN
 	1    5910 1500
 	0    -1   -1   0   
 $EndComp
-Text GLabel 970  950  1    50   Input ~ 0
-LCol0
-Wire Wire Line
-	1570 1650 2300 1650
 Wire Wire Line
 	2300 1650 3040 1650
-Connection ~ 2300 1650
 Wire Wire Line
 	3040 1650 3800 1650
 Connection ~ 3040 1650
@@ -209,17 +182,6 @@ F 1 "SW_PUSH" H 2010 2164 50  0000 C CNN
 F 2 "kbd:CherryMX_Hotswap" H 2010 2000 50  0001 C CNN
 F 3 "" H 2010 2000 50  0000 C CNN
 	1    2010 2000
-	1    0    0    -1  
-$EndComp
-$Comp
-L kbd:SW_PUSH SW2
-U 1 1 6061D8B8
-P 1280 2000
-F 0 "SW2" H 1280 2255 50  0000 C CNN
-F 1 "SW_PUSH" H 1280 2164 50  0000 C CNN
-F 2 "kbd:CherryMX_Hotswap" H 1280 2000 50  0001 C CNN
-F 3 "" H 1280 2000 50  0000 C CNN
-	1    1280 2000
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -265,17 +227,6 @@ F 2 "kbd:CherryMX_Hotswap" H 5620 2000 50  0001 C CNN
 F 3 "" H 5620 2000 50  0000 C CNN
 	1    5620 2000
 	1    0    0    -1  
-$EndComp
-$Comp
-L Device:D D3
-U 1 1 6061D8D6
-P 1580 2150
-F 0 "D3" V 1626 2070 50  0000 R CNN
-F 1 "D" V 1535 2070 50  0000 R CNN
-F 2 "kbd:D3_SMD_v2" H 1580 2150 50  0001 C CNN
-F 3 "~" H 1580 2150 50  0001 C CNN
-	1    1580 2150
-	0    -1   -1   0   
 $EndComp
 $Comp
 L Device:D D7
@@ -366,17 +317,6 @@ F 3 "" H 2050 2710 50  0000 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L kbd:SW_PUSH SW3
-U 1 1 60628839
-P 1320 2710
-F 0 "SW3" H 1320 2965 50  0000 C CNN
-F 1 "SW_PUSH" H 1320 2874 50  0000 C CNN
-F 2 "kbd:CherryMX_Hotswap" H 1320 2710 50  0001 C CNN
-F 3 "" H 1320 2710 50  0000 C CNN
-	1    1320 2710
-	1    0    0    -1  
-$EndComp
-$Comp
 L kbd:SW_PUSH SW21
 U 1 1 6062883F
 P 4970 2710
@@ -419,17 +359,6 @@ F 2 "kbd:CherryMX_Hotswap" H 5660 2710 50  0001 C CNN
 F 3 "" H 5660 2710 50  0000 C CNN
 	1    5660 2710
 	1    0    0    -1  
-$EndComp
-$Comp
-L Device:D D4
-U 1 1 60628857
-P 1620 2860
-F 0 "D4" V 1666 2780 50  0000 R CNN
-F 1 "D" V 1575 2780 50  0000 R CNN
-F 2 "kbd:D3_SMD_v2" H 1620 2860 50  0001 C CNN
-F 3 "~" H 1620 2860 50  0001 C CNN
-	1    1620 2860
-	0    -1   -1   0   
 $EndComp
 $Comp
 L Device:D D8
@@ -586,18 +515,6 @@ F 3 "~" H 5920 3690 50  0001 C CNN
 	0    -1   -1   0   
 $EndComp
 Wire Wire Line
-	970  2000 980  2000
-Wire Wire Line
-	970  950  970  1350
-Connection ~ 970  1350
-Wire Wire Line
-	970  1350 970  2000
-Wire Wire Line
-	980  2000 980  2710
-Wire Wire Line
-	980  2710 1020 2710
-Connection ~ 980  2000
-Wire Wire Line
 	1690 950  1690 1350
 Wire Wire Line
 	1690 1350 1700 1350
@@ -670,14 +587,11 @@ Wire Wire Line
 Wire Wire Line
 	4640 3540 4630 3540
 Wire Wire Line
-	5310 900  5310 1340
-Wire Wire Line
 	5300 1350 5310 1350
 Wire Wire Line
 	5310 1350 5310 2000
 Wire Wire Line
 	5310 2000 5320 2000
-Connection ~ 5310 1350
 Wire Wire Line
 	5320 2000 5320 2710
 Wire Wire Line
@@ -786,10 +700,7 @@ Wire Wire Line
 	6810 1650 7070 1650
 Connection ~ 6810 1650
 Wire Wire Line
-	1580 2300 2310 2300
-Wire Wire Line
 	2310 2300 3050 2300
-Connection ~ 2310 2300
 Wire Wire Line
 	3050 2300 3810 2300
 Connection ~ 3050 2300
@@ -826,10 +737,7 @@ LRow3
 Wire Wire Line
 	6930 3010 6940 3010
 Wire Wire Line
-	1620 3010 2350 3010
-Wire Wire Line
 	2350 3010 3090 3010
-Connection ~ 2350 3010
 Wire Wire Line
 	3090 3010 3850 3010
 Connection ~ 3090 3010
@@ -945,17 +853,6 @@ F 3 "" H 9840 1370 50  0000 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L kbd:SW_PUSH SW30
-U 1 1 6075B8D6
-P 9110 1370
-F 0 "SW30" H 9110 1625 50  0000 C CNN
-F 1 "SW_PUSH" H 9110 1534 50  0000 C CNN
-F 2 "kbd:CherryMX_Hotswap" H 9110 1370 50  0001 C CNN
-F 3 "" H 9110 1370 50  0000 C CNN
-	1    9110 1370
-	1    0    0    -1  
-$EndComp
-$Comp
 L kbd:SW_PUSH SW47
 U 1 1 6075B8DC
 P 12760 1370
@@ -998,17 +895,6 @@ F 2 "kbd:CherryMX_Hotswap" H 13450 1370 50  0001 C CNN
 F 3 "" H 13450 1370 50  0000 C CNN
 	1    13450 1370
 	1    0    0    -1  
-$EndComp
-$Comp
-L Device:D D36
-U 1 1 6075B8F4
-P 9410 1520
-F 0 "D36" V 9456 1440 50  0000 R CNN
-F 1 "D" V 9365 1440 50  0000 R CNN
-F 2 "kbd:D3_SMD_v2" H 9410 1520 50  0001 C CNN
-F 3 "~" H 9410 1520 50  0001 C CNN
-	1    9410 1520
-	0    -1   -1   0   
 $EndComp
 $Comp
 L Device:D D39
@@ -1076,13 +962,8 @@ F 3 "~" H 13750 1520 50  0001 C CNN
 	1    13750 1520
 	0    -1   -1   0   
 $EndComp
-Text GLabel 8810 970  1    50   Input ~ 0
-RCol0
-Wire Wire Line
-	9410 1670 10140 1670
 Wire Wire Line
 	10140 1670 10880 1670
-Connection ~ 10140 1670
 Wire Wire Line
 	10880 1670 11640 1670
 Connection ~ 10880 1670
@@ -1118,17 +999,6 @@ F 1 "SW_PUSH" H 9850 2184 50  0000 C CNN
 F 2 "kbd:CherryMX_Hotswap" H 9850 2020 50  0001 C CNN
 F 3 "" H 9850 2020 50  0000 C CNN
 	1    9850 2020
-	1    0    0    -1  
-$EndComp
-$Comp
-L kbd:SW_PUSH SW31
-U 1 1 6075B938
-P 9120 2020
-F 0 "SW31" H 9120 2275 50  0000 C CNN
-F 1 "SW_PUSH" H 9120 2184 50  0000 C CNN
-F 2 "kbd:CherryMX_Hotswap" H 9120 2020 50  0001 C CNN
-F 3 "" H 9120 2020 50  0000 C CNN
-	1    9120 2020
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -1174,17 +1044,6 @@ F 2 "kbd:CherryMX_Hotswap" H 13460 2020 50  0001 C CNN
 F 3 "" H 13460 2020 50  0000 C CNN
 	1    13460 2020
 	1    0    0    -1  
-$EndComp
-$Comp
-L Device:D D37
-U 1 1 6075B956
-P 9420 2170
-F 0 "D37" V 9466 2090 50  0000 R CNN
-F 1 "D" V 9375 2090 50  0000 R CNN
-F 2 "kbd:D3_SMD_v2" H 9420 2170 50  0001 C CNN
-F 3 "~" H 9420 2170 50  0001 C CNN
-	1    9420 2170
-	0    -1   -1   0   
 $EndComp
 $Comp
 L Device:D D40
@@ -1275,17 +1134,6 @@ F 3 "" H 9890 2730 50  0000 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L kbd:SW_PUSH SW32
-U 1 1 6075B98C
-P 9160 2730
-F 0 "SW32" H 9160 2985 50  0000 C CNN
-F 1 "SW_PUSH" H 9160 2894 50  0000 C CNN
-F 2 "kbd:CherryMX_Hotswap" H 9160 2730 50  0001 C CNN
-F 3 "" H 9160 2730 50  0000 C CNN
-	1    9160 2730
-	1    0    0    -1  
-$EndComp
-$Comp
 L kbd:SW_PUSH SW50
 U 1 1 6075B992
 P 12810 2730
@@ -1328,17 +1176,6 @@ F 2 "kbd:CherryMX_Hotswap" H 13500 2730 50  0001 C CNN
 F 3 "" H 13500 2730 50  0000 C CNN
 	1    13500 2730
 	1    0    0    -1  
-$EndComp
-$Comp
-L Device:D D38
-U 1 1 6075B9AA
-P 9460 2880
-F 0 "D38" V 9506 2800 50  0000 R CNN
-F 1 "D" V 9415 2800 50  0000 R CNN
-F 2 "kbd:D3_SMD_v2" H 9460 2880 50  0001 C CNN
-F 3 "~" H 9460 2880 50  0001 C CNN
-	1    9460 2880
-	0    -1   -1   0   
 $EndComp
 $Comp
 L Device:D D41
@@ -1495,18 +1332,6 @@ F 3 "~" H 13760 3710 50  0001 C CNN
 	0    -1   -1   0   
 $EndComp
 Wire Wire Line
-	8810 2020 8820 2020
-Wire Wire Line
-	8810 970  8810 1370
-Connection ~ 8810 1370
-Wire Wire Line
-	8810 1370 8810 2020
-Wire Wire Line
-	8820 2020 8820 2730
-Wire Wire Line
-	8820 2730 8860 2730
-Connection ~ 8820 2020
-Wire Wire Line
 	9530 970  9530 1370
 Wire Wire Line
 	9530 1370 9540 1370
@@ -1577,14 +1402,11 @@ Wire Wire Line
 Wire Wire Line
 	12480 3560 12470 3560
 Wire Wire Line
-	13150 920  13150 1360
-Wire Wire Line
 	13140 1370 13150 1370
 Wire Wire Line
 	13150 1370 13150 2020
 Wire Wire Line
 	13150 2020 13160 2020
-Connection ~ 13150 1370
 Wire Wire Line
 	13160 2020 13160 2730
 Wire Wire Line
@@ -1594,8 +1416,6 @@ Wire Wire Line
 	13170 2910 13170 3560
 Wire Wire Line
 	13170 3560 13160 3560
-Text GLabel 9530 970  1    50   Input ~ 0
-RCol1
 Text GLabel 10280 960  1    50   Input ~ 0
 RCol2
 Text GLabel 11010 950  1    50   Input ~ 0
@@ -1693,10 +1513,7 @@ Wire Wire Line
 	14650 1670 14910 1670
 Connection ~ 14650 1670
 Wire Wire Line
-	9420 2320 10150 2320
-Wire Wire Line
 	10150 2320 10890 2320
-Connection ~ 10150 2320
 Wire Wire Line
 	10890 2320 11650 2320
 Connection ~ 10890 2320
@@ -1733,10 +1550,7 @@ RRow3
 Wire Wire Line
 	14770 3030 14780 3030
 Wire Wire Line
-	9460 3030 10190 3030
-Wire Wire Line
 	10190 3030 10930 3030
-Connection ~ 10190 3030
 Wire Wire Line
 	10930 3030 11690 3030
 Connection ~ 10930 3030
@@ -3393,8 +3207,6 @@ Text GLabel 4670 9675 2    50   Input ~ 0
 LSCL
 Text GLabel 4670 9775 2    50   Input ~ 0
 LSCA
-Text GLabel 3615 9410 2    50   Input ~ 0
-LCol0
 Text GLabel 3615 9515 2    50   Input ~ 0
 LCol1
 Text GLabel 3615 9620 2    50   Input ~ 0
@@ -3409,14 +3221,6 @@ Text GLabel 3610 10040 2    50   Input ~ 0
 LCol6
 Text GLabel 3610 10145 2    50   Input ~ 0
 LCol7
-Wire Wire Line
-	3255 9290 3570 9290
-Wire Wire Line
-	3570 9290 3570 9405
-Wire Wire Line
-	3570 9405 3615 9405
-Wire Wire Line
-	3615 9405 3615 9410
 Wire Wire Line
 	3255 9365 3555 9365
 Wire Wire Line
@@ -3617,8 +3421,6 @@ Text GLabel 10440 9595 2    50   Input ~ 0
 RSCL
 Text GLabel 10440 9695 2    50   Input ~ 0
 RSCA
-Text GLabel 9385 9330 2    50   Input ~ 0
-RCol0
 Text GLabel 9385 9435 2    50   Input ~ 0
 RCol1
 Text GLabel 9385 9540 2    50   Input ~ 0
@@ -3633,14 +3435,6 @@ Text GLabel 9380 9960 2    50   Input ~ 0
 RCol6
 Text GLabel 9380 10065 2    50   Input ~ 0
 RCol7
-Wire Wire Line
-	9025 9210 9340 9210
-Wire Wire Line
-	9340 9210 9340 9325
-Wire Wire Line
-	9340 9325 9385 9325
-Wire Wire Line
-	9385 9325 9385 9330
 Wire Wire Line
 	9025 9285 9325 9285
 Wire Wire Line
@@ -3946,4 +3740,19 @@ Wire Wire Line
 	3255 9740 3480 9740
 Wire Wire Line
 	3480 9740 3480 10040
+Wire Wire Line
+	5300 1350 5300 900 
+Wire Wire Line
+	5300 900  5310 900 
+Wire Wire Line
+	13140 1370 13140 920 
+Wire Wire Line
+	13140 920  13150 920 
+Connection ~ 10190 3030
+Wire Wire Line
+	9460 3030 10190 3030
+Text GLabel 9530 970  1    50   Input ~ 0
+RCol1
+NoConn ~ 3255 9290
+NoConn ~ 9025 9210
 $EndSCHEMATC
