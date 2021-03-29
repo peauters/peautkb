@@ -529,8 +529,6 @@ Connection ~ 1690 2000
 Wire Wire Line
 	1690 2000 1690 2710
 Wire Wire Line
-	2440 1360 2440 2000
-Wire Wire Line
 	2440 2710 2490 2710
 Wire Wire Line
 	2440 1350 2440 940 
@@ -2326,8 +2324,6 @@ Wire Wire Line
 	3255 8840 3595 8840
 Wire Wire Line
 	3595 8670 3595 8840
-Text GLabel 2355 10040 0    50   Input ~ 0
-TRRS_VDD
 $Comp
 L power:GND1 #PWR0125
 U 1 1 60FB4C79
@@ -2361,8 +2357,6 @@ Text GLabel 2245 8790 0    50   Input ~ 0
 LUSART_TX
 Text GLabel 2245 8910 0    50   Input ~ 0
 LUSART_RX
-Text GLabel 4895 8655 2    50   Input ~ 0
-TRRS_VDD
 Text GLabel 4895 8770 2    50   Input ~ 0
 LUSART_TX
 Text GLabel 4895 8885 2    50   Input ~ 0
@@ -2632,14 +2626,6 @@ Wire Wire Line
 	10510 8725 10510 8925
 Wire Wire Line
 	10510 8925 10665 8925
-Text GLabel 9385 9225 2    50   Input ~ 0
-RRow3
-Text GLabel 9385 9120 2    50   Input ~ 0
-RRow2
-Text GLabel 9385 9015 2    50   Input ~ 0
-RRow1
-Text GLabel 9385 8910 2    50   Input ~ 0
-RRow0
 Wire Wire Line
 	9025 8910 9385 8910
 Wire Wire Line
@@ -3512,4 +3498,19 @@ Wire Wire Line
 Connection ~ 3105 5010
 Wire Wire Line
 	3105 5010 3705 5010
+Text GLabel 4895 8655 2    50   Input ~ 0
+TRRS_VDD
+Text GLabel 2355 10040 0    50   Input ~ 0
+TRRS_VDD
+Text GLabel 9385 9120 2    50   Input ~ 0
+RRow2
+Text GLabel 9385 9225 2    50   Input ~ 0
+RRow3
+Text GLabel 9385 9015 2    50   Input ~ 0
+RRow1
+Text GLabel 9385 8910 2    50   Input ~ 0
+RRow0
+Wire Wire Line
+	2440 1350 2440 2000
+Connection ~ 2440 1350
 $EndSCHEMATC
