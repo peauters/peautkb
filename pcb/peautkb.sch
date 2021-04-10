@@ -2523,22 +2523,10 @@ Wire Wire Line
 	3510 9830 3610 9830
 Wire Wire Line
 	3255 9665 3495 9665
-Text GLabel 3610 10355 2    50   Input ~ 0
+Text GLabel 2195 9465 0    50   Input ~ 0
 LENCA
-Text GLabel 3610 10460 2    50   Input ~ 0
+Text GLabel 2195 9575 0    50   Input ~ 0
 LENCB
-Wire Wire Line
-	3255 10040 3435 10040
-Wire Wire Line
-	3435 10040 3435 10355
-Wire Wire Line
-	3435 10355 3610 10355
-Wire Wire Line
-	3255 10115 3420 10115
-Wire Wire Line
-	3420 10115 3420 10460
-Wire Wire Line
-	3420 10460 3610 10460
 $Comp
 L peautkb:black-pill-v3 U1
 U 1 1 60EA76B8
@@ -2558,14 +2546,10 @@ NoConn ~ 2355 9065
 NoConn ~ 2355 9290
 NoConn ~ 2355 9365
 NoConn ~ 2355 9440
-Text GLabel 2150 9515 0    50   Input ~ 0
+Text GLabel 2195 9350 0    50   Input ~ 0
 LLED_In
-NoConn ~ 2355 9590
-NoConn ~ 2355 9665
 NoConn ~ 2355 9890
 NoConn ~ 2355 9965
-Wire Wire Line
-	2355 9515 2150 9515
 Wire Wire Line
 	9025 8685 9155 8685
 Wire Wire Line
@@ -4647,4 +4631,24 @@ Wire Wire Line
 	9340 9210 9340 9330
 Wire Wire Line
 	9340 9330 9385 9330
+Wire Wire Line
+	2355 9515 2275 9515
+Wire Wire Line
+	2275 9515 2275 9350
+Wire Wire Line
+	2275 9350 2195 9350
+Wire Wire Line
+	2355 9590 2255 9590
+Wire Wire Line
+	2255 9590 2255 9465
+Wire Wire Line
+	2255 9465 2195 9465
+Wire Wire Line
+	2355 9665 2235 9665
+Wire Wire Line
+	2235 9665 2235 9575
+Wire Wire Line
+	2235 9575 2195 9575
+NoConn ~ 3255 10040
+NoConn ~ 3255 10115
 $EndSCHEMATC
