@@ -23,7 +23,7 @@ ssd1306 = "0.5.1"
 embedded-hal = "0.2.4"
 ws2812-spi = "0.4.0"
 smart-leds = "0.3.0"
-
+nb = "1.0.0"
 
 #panic-semihosting = "0.5.3"
 

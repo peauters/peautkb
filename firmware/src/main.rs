@@ -10,28 +10,21 @@ use rtic::app;
 use defmt_rtt as _; // global logger
 use panic_probe as _;
 
-use usb_device::bus::UsbBusAllocator;
-use usb_device::class::UsbClass as _;
-use usb_device::device::UsbDeviceState;
+use nb::block;
 
 use core::fmt::Write;
 use ssd1306::{prelude::*, Builder, I2CDIBuilder, mode::TerminalMode};
 
-use embedded_hal::spi::MODE_0;
-
-use  ws2812_spi::{*, devices::Sk6812w};
-use smart_leds::{SmartLedsWrite, RGBW, RGB8, White };
-
-use crate::hal::{prelude::*, 
+use crate::hal::{
                 stm32, 
-                pwm,
                 timer,
+                serial,
                 interrupt,
                 otg_fs,
                 spi::*,
                 i2c::I2c,
                 gpio::{
-                    gpioa::{PA5, PA6, PA7, PA1},
+                    gpioa::{PA5, PA6, PA7, PA1, PA0},
                     gpiob::{PB8, PB9},
                     gpioc::{PC13, PC14},
                     AlternateOD,
@@ -46,36 +39,27 @@ use crate::hal::{prelude::*,
                 },
 };
 
-type UsbClass = keyberon::Class<'static, otg_fs::UsbBusType, ()>;
-type UsbDevice = usb_device::device::UsbDevice<'static, otg_fs::UsbBusType>;
-
-static mut EP_MEMORY: [u32; 1024] = [0; 1024];
-
 #[app(device = crate::hal::stm32, peripherals = true)]
 const APP : () = 
 {
 
     struct Resources {
         timer: timer::Timer<stm32::TIM3>,
-        // usb_dev : UsbDevice,
-        // usb_class : UsbClass,
-        // display: TerminalMode<I2CInterface<I2c<stm32::I2C1, (PB8<AlternateOD<AF4>>, PB9<AlternateOD<AF4>>)>>, 
-        // DisplaySize128x64>,
-        // leds : Ws2812<Spi<stm32::SPI1, (PA5<Alternate<AF5>>, PA6<Alternate<AF5>>, PA7<Alternate<AF5>>)>, Sk6812w>,
-        // leg_a : PC14<Input<PullUp>>,
-        // leg_b : PC13<Input<PullDown>>,
-        a1 : PA1<Input<PullUp>>,
-        exti : stm32::EXTI,
+        display: TerminalMode<I2CInterface<I2c<stm32::I2C1, (PB8<AlternateOD<AF4>>, PB9<AlternateOD<AF4>>)>>, 
+        DisplaySize128x64>,
+        my_count : u8,
+        remote_count : u8,
+        a0: PA0<Input<PullUp>>,
+        tx : serial::Tx<stm32::USART1>,
+        rx : serial::Rx<stm32::USART1>
+
     }
 
-    #[init]
+    #[init(spawn = [disp])]
     fn init(c : init::Context) -> init::LateResources {
-        static mut USB_BUS: Option<UsbBusAllocator<otg_fs::UsbBusType>> = None;
 
         let mut perfs : stm32::Peripherals = c.device;
         
-        let mut syscfg = perfs.SYSCFG;
-
         let rcc = perfs.RCC.constrain();
         let clocks = rcc.cfgr
                         .sysclk(48.mhz())
@@ -83,95 +67,55 @@ const APP : () =
                         .freeze();
 
         let gpioa = perfs.GPIOA.split();
+
+        let mut a0 = gpioa.pa0.into_pull_up_input();
+        a0.enable_interrupt(&mut perfs.EXTI);
+        a0.make_interrupt_source(&mut perfs.SYSCFG);
+        a0.trigger_on_edge(&mut perfs.EXTI, Edge::FALLING);
+
+        let tx_pin = gpioa.pa9.into_alternate_af7();
+        let rx_pin = gpioa.pa10.into_alternate_af7();
+
+        let mut serial = serial::Serial::usart1(
+            perfs.USART1,
+            (tx_pin, rx_pin),
+            serial::config::Config::default().baudrate(9600.bps()),
+            clocks).unwrap();
+        serial.listen(serial::Event::Rxne);
+
+        let (tx, rx) = serial.split();
+
+
         let gpiob = perfs.GPIOB.split();
-        let gpioc = perfs.GPIOC.split();
 
         let mut timer = timer::Timer::tim3(perfs.TIM3, 1.hz(), clocks);
         timer.listen(timer::Event::TimeOut);
 
-        let mut a1 = gpioa.pa1.into_pull_up_input();
-        a1.make_interrupt_source(&mut syscfg);
-        a1.enable_interrupt(&mut perfs.EXTI);
-        a1.trigger_on_edge(&mut perfs.EXTI, Edge::FALLING);
- 
-        // let mut leg_a = gpioc.pc14.into_pull_up_input();
-
-
-        // let leg_b = gpioc.pc13.into_pull_down_input();
-
-
-
-        let spi = Spi::spi1(
-            perfs.SPI1, 
-            (
-                gpioa.pa5.into_alternate_af5(),
-                gpioa.pa6.into_alternate_af5(),
-                gpioa.pa7.into_alternate_af5()), 
-            ws2812_spi::MODE, 
-            3_000_000.hz(), 
-            clocks);
+        let scl = gpiob.pb8.into_alternate_af4().internal_pull_up(true).set_open_drain();
+        let sda = gpiob.pb9.into_alternate_af4().internal_pull_up(true).set_open_drain();
+        let i2c = I2c::i2c1(perfs.I2C1, (scl, sda), 100.khz(), clocks);
         
-        let mut leds = Ws2812::new_sk6812w(spi);
-
-        let mut data : [RGBW<u8, u8>; 5] = [RGBW::default(); 5]; 
-
-        data[0] = RGBW::new_alpha(255, 0, 0, White::default());
-        data[1] = RGBW::new_alpha(0, 255, 0, White::default());
-        data[2] = RGBW::new_alpha(0, 0, 255, White::default());
-        data[3] = RGBW::new_alpha(255, 255, 0, White::default());
-        data[4] = RGBW::new_alpha(0, 0, 255, White::default());
-        leds.write(data.iter().cloned()).unwrap();
-
-        // let pwm = pwm::tim1(perfs.TIM1, (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1()), clocks, 3.mhz());
-
-        // let (mut ch1, _ch2) = pwm;
-
-        // let max_duty = ch1.get_max_duty();
-        // ch1.set_duty((max_duty as f64 * 0.64) as u16);
-        // // ch1.set_duty(0);
-        // ch1.enable();
-
-
-        // let usb = otg_fs::USB {
-        //     usb_global : perfs.OTG_FS_GLOBAL,
-        //     usb_device : perfs.OTG_FS_DEVICE,
-        //     usb_pwrclk : perfs.OTG_FS_PWRCLK,
-        //     pin_dm: gpioa.pa11.into_alternate_af10(),
-        //     pin_dp: gpioa.pa12.into_alternate_af10(),
-        // };
-        // *USB_BUS = Some(otg_fs::UsbBusType::new(usb, unsafe { &mut EP_MEMORY }));
-        // let usb_bus = USB_BUS.as_ref().unwrap();
-
-        // let usb_class = keyberon::new_class(usb_bus, ());
-        // let usb_dev = keyberon::new_device(usb_bus);
-
-        // defmt::info!("Initialized USB");
-
-        // let scl = gpiob.pb8.into_alternate_af4().internal_pull_up(true).set_open_drain();
-        // let sda = gpiob.pb9.into_alternate_af4().internal_pull_up(true).set_open_drain();
-        // let i2c = I2c::i2c1(perfs.I2C1, (scl, sda), 100.khz(), clocks);
-        
-        // let interface = I2CDIBuilder::new().init(i2c);
-        // let mut display: TerminalMode<_, _> = Builder::new().connect(interface).into();
-        // defmt::info!("Initializing display");
-        // display.init().unwrap();
-        // display.flush().unwrap();
-        // display.clear().unwrap();
-        // display.flush().unwrap();
+        let interface = I2CDIBuilder::new().init(i2c);
+        let mut display: TerminalMode<_, _> = Builder::new().connect(interface).into();
+        defmt::info!("Initializing display");
+        display.init().unwrap();
+        display.flush().unwrap();
+        display.clear().unwrap();
+        display.flush().unwrap();
 
 
         defmt::info!("I've init'd");
 
+        c.spawn.disp().unwrap();
+
         init::LateResources {
             timer,
-            // usb_dev,
-            // usb_class,
-            // display,
-            // leds,
-            // leg_a,
-            // leg_b,
-            exti: perfs.EXTI,
-            a1,
+            display,
+            my_count : 0,
+            remote_count : 0,
+            a0,
+            tx,
+            rx,
         }
 
     }
@@ -183,68 +127,57 @@ const APP : () =
         }
     }
 
-    // #[task(binds = OTG_FS, priority = 4, resources = [usb_dev, usb_class])]
-    // fn usb_rx(c: usb_rx::Context) {
-    //     if c.resources.usb_dev.poll(&mut [c.resources.usb_class]) {
-    //         c.resources.usb_class.poll();
-    //     }
-    // }
+    #[task(binds = EXTI0, resources = [a0, my_count, tx], spawn = [disp])]
+    fn button_press(mut c : button_press::Context) {
+        c.resources.a0.clear_interrupt_pending_bit();
 
-    #[task(binds = TIM3,
-            priority = 2,
-            resources = [timer])]
-    fn tick(c : tick::Context) {
+        *c.resources.my_count +=1;
+        
+        let count = *c.resources.my_count;
 
-        c.resources.timer.wait().ok();
+        defmt::info!("Button has been pressed. my count is {}", &count);
 
-        // c.resources.display.write_str("blah ").unwrap();
+        block!(c.resources.tx.write(count)).unwrap();
+        c.spawn.disp().unwrap();
 
-        // if c.resources.a1.is_high().unwrap() {
-        //    defmt::info!("high");
-
-        // }
-        // else {
-        //     defmt::info!("low");
-
-                // defmt::info!("a tick happend");
-
-        // let leds = c.resources.leds;
-
-        // let mut data : [RGBW<u8, u8>; 5] = [RGBW::default(); 5]; 
-
-        // data[0] = RGBW::new_alpha(255, 0, 0, White::default());
-        // data[1] = RGBW::new_alpha(0, 255, 0, White::default());
-        // data[2] = RGBW::new_alpha(0, 0, 255, White::default());
-        // data[3] = RGBW::new_alpha(255, 255, 0, White::default());
-        // data[4] = RGBW::new_alpha(0, 0, 255, White::default());
-        // leds.write(data.iter().cloned()).unwrap();
-        // defmt::info!("a tick happend");
-
-
-        }
-
-        // defmt::info!("a tick happend");
-
-        // let leds = c.resources.leds;
-
-        // let mut data : [RGBW<u8, u8>; 5] = [RGBW::default(); 5]; 
-
-        // data[0] = RGBW::new_alpha(255, 0, 0, White::default());
-        // data[1] = RGBW::new_alpha(0, 255, 0, White::default());
-        // data[2] = RGBW::new_alpha(0, 0, 255, White::default());
-        // data[3] = RGBW::new_alpha(255, 255, 0, White::default());
-        // data[4] = RGBW::new_alpha(0, 0, 255, White::default());
-    //    leds.write(data.iter().cloned()).unwrap();
-
-    // }
-
-    #[task(binds = EXTI1,
-        resources = [a1])]
-    fn rotate(c : rotate::Context)
-    {
-        defmt::info!("rotate");
-        c.resources.a1.clear_interrupt_pending_bit(); 
     }
 
+    #[task(binds = USART1, resources = [rx, remote_count], spawn = [disp])]
+    fn rx(mut c : rx::Context) {
+
+        defmt::info!("Received comms");
+
+        if let Ok(count) = c.resources.rx.read() {
+            *c.resources.remote_count = count;
+            c.spawn.disp().unwrap();
+        }
+        
+    }
+
+    #[task(resources = [display, my_count, remote_count])]
+    fn disp(mut c : disp::Context) {
+        let disp::Resources {display, my_count, remote_count } = c.resources;
+        display.clear().unwrap();
+        write!(display, "My count: {}\nRemote count: {}", my_count, remote_count).unwrap();
+    }
+
+
+    // #[task(binds = TIM3,
+    //         priority = 2,
+    //         resources = [timer, display, my_count, remote_count])]
+    // fn tick(c : tick::Context) {
+
+    //     let tick::Resources {timer, display, my_count, remote_count } = c.resources;
+
+    //     timer.wait().ok();
+
+    //     display.clear().unwrap();
+    //     write!(display, "My count: {}\nRemote count: {}", my_count, remote_count).unwrap();
+
+    // }
+
+    extern "C" {
+        fn DMA2_STREAM0();
+    }
 
 };
