@@ -10,7 +10,8 @@ use crate::hal::{
 };
 
 use postcard::{from_bytes, to_slice};
-use serde::{Deserialize, Serialize};
+
+use crate::dispatcher::Message;
 
 pub struct TxComms {
     tx: serial::Tx<USART1>,
@@ -73,10 +74,4 @@ impl RxComms {
             Err(_) => None,
         }
     }
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-pub enum Message {
-    URSecondary,
-    ACount(u32),
 }
