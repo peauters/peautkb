@@ -23,8 +23,7 @@ mod app {
     use core::convert::Infallible;
 
     use crate::hal::{
-        gpio::{gpioa, gpiob, AlternateOD, Input, Output, PullUp, PushPull, AF4},
-        i2c::*,
+        gpio::{gpioa, gpiob, Input, Output, PullUp, PushPull},
         otg_fs,
         prelude::*,
         stm32, timer,
@@ -37,7 +36,7 @@ mod app {
     use keyberon::debounce::Debouncer;
     use keyberon::impl_heterogenous_array;
     use keyberon::key_code::KbHidReport;
-    use keyberon::layout::Layout;
+    use keyberon::layout::{Event, Layout};
     use keyberon::matrix::{Matrix, PressedKeys};
 
     use crate::app;
@@ -88,13 +87,12 @@ mod app {
         usb_class: app::UsbClass,
         tx: TxComms,
         rx: RxComms,
-        // dispatcher: Dispatcher,
+        dispatcher: Dispatcher,
         matrix: Matrix<app::Cols, app::Rows>,
         debouncer: Debouncer<PressedKeys<U4, U7>>,
         layout: Layout,
         initd: bool,
         timer_init: bool,
-        i2c: I2c<stm32::I2C1, (gpiob::PB8<AlternateOD<AF4>>, gpiob::PB9<AlternateOD<AF4>>)>,
     }
 
     static mut EP_MEMORY: [u32; 1024] = [0; 1024];
@@ -131,8 +129,7 @@ mod app {
             .into_alternate_af4()
             .internal_pull_up(true)
             .set_open_drain();
-        // let display = OLED::new(perfs.I2C1, pb8, pb9, clocks);
-        let i2c = I2c::new(perfs.I2C1, (pb8, pb9), 400.khz(), clocks);
+        let display = OLED::new(perfs.I2C1, pb8, pb9, clocks);
 
         // USB keyboard
         let usb = otg_fs::USB {
@@ -185,13 +182,12 @@ mod app {
                 usb_dev,
                 tx,
                 rx,
-                // dispatcher: Dispatcher::new(display),
+                dispatcher: Dispatcher::new(display),
                 initd: false,
                 matrix,
                 debouncer,
                 layout,
                 timer_init: false,
-                i2c,
             },
             init::Monotonics(mono),
         )
@@ -204,20 +200,37 @@ mod app {
         }
     }
 
-    // #[task(binds = USART1, priority = 3, resources = [rx, initd])]
-    // fn rx(mut c: rx::Context) {
-    //     c.resources.initd.lock(|b| {
-    //         if !*b {
-    //             late_init::spawn_after(Milliseconds::new(1000_u32)).ok();
-    //             *b = true;
-    //         }
-    //     });
-    //     c.resources.rx.lock(|rx| {
-    //         if let Some(message) = rx.read_event() {
-    //             dispatch_event::spawn(message).unwrap();
-    //         }
-    //     });
-    // }
+    #[task(binds = USART1, priority = 3, resources = [rx, initd, layout])]
+    fn rx(c: rx::Context) {
+        let rx::Resources {
+            mut rx,
+            mut initd,
+            mut layout,
+        } = c.resources;
+
+        initd.lock(|b| {
+            if !*b {
+                late_init::spawn_after(Milliseconds::new(1000_u32)).ok();
+                *b = true;
+            }
+        });
+        rx.lock(|rx| {
+            if let Some(message) = rx.read_event() {
+                dispatch_event::spawn(message).unwrap();
+                match message {
+                    Message::SecondaryKeyPress(i, j) => {
+                        layout.lock(|l| l.event(Event::Press(i, j)));
+                        send_hid_report::spawn().unwrap();
+                    }
+                    Message::SecondaryKeyRelease(i, j) => {
+                        layout.lock(|l| l.event(Event::Release(i, j)));
+                        send_hid_report::spawn().unwrap();
+                    }
+                    _ => (),
+                }
+            }
+        });
+    }
 
     #[task(binds = OTG_FS, priority = 4, resources = [usb_dev, usb_class, initd])]
     fn usb_rx(mut c: usb_rx::Context) {
@@ -268,6 +281,14 @@ mod app {
             debouncer.lock(|d| {
                 for event in d.events(pressed_keys) {
                     l.event(event);
+                    match event {
+                        Event::Press(i, j) => {
+                            dispatch_event::spawn(Message::MatrixKeyPress(i, j)).unwrap()
+                        }
+                        Event::Release(i, j) => {
+                            dispatch_event::spawn(Message::MatrixKeyRelease(i, j)).unwrap()
+                        }
+                    }
                 }
             })
         });
@@ -302,54 +323,41 @@ mod app {
         while let Ok(0) = c.resources.usb_class.lock(|k| k.write(report.as_bytes())) {}
     }
 
-    #[task(resources = [tx, timer_init, scan_timer, tick_timer], capacity = 20)]
-    fn dispatch_event(mut c: dispatch_event::Context, message: Message) {
+    #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer], capacity = 20)]
+    fn dispatch_event(c: dispatch_event::Context, message: Message) {
         // let mut tx = c.resources.tx;
-        // let dispatch_event::Resources {
-        //     mut dispatcher,
-        //     tx,
-        //     mut timer_init,
-        //     mut scan_timer,
-        //     mut tick_timer,
-        // } = c.resources;
-
-        // dispatcher.lock(|d| {
-        //     d.dispatch(message)
-        //         .map(Message::to_type)
-        //         .for_each(|t| match t {
-        //             MessageType::Local(m) => {
-        //                 dispatch_event::spawn(m).unwrap();
-        //                 timer_init.lock(|t| {
-        //                     if !*t {
-        //                         scan_timer.lock(|t| t.listen(timer::Event::TimeOut));
-        //                         tick_timer.lock(|t| t.listen(timer::Event::TimeOut));
-        //                         *t = true;
-        //                     }
-        //                 })
-        //             }
-        //             // MessageType::Remote(m) => tx.lock(|t| t.send_event(m)),
-        //             _ => (),
-        //         })
-        // });
-    }
-
-    #[task(resources = [scan_timer, tick_timer, usb_dev, i2c ])]
-    fn late_init(c: late_init::Context) {
-        let late_init::Resources {
+        let dispatch_event::Resources {
+            mut dispatcher,
+            mut tx,
+            mut timer_init,
             mut scan_timer,
             mut tick_timer,
-            mut usb_dev,
-            mut i2c,
         } = c.resources;
+
+        dispatcher.lock(|d| {
+            d.dispatch(message)
+                .map(Message::to_type)
+                .for_each(|t| match t {
+                    MessageType::Local(m) => {
+                        dispatch_event::spawn(m).unwrap();
+                        timer_init.lock(|t| {
+                            if !*t {
+                                scan_timer.lock(|t| t.listen(timer::Event::TimeOut));
+                                tick_timer.lock(|t| t.listen(timer::Event::TimeOut));
+                                *t = true;
+                            }
+                        })
+                    }
+                    MessageType::Remote(m) => tx.lock(|t| t.send_event(m)),
+                })
+        });
+    }
+
+    #[task(resources = [usb_dev])]
+    fn late_init(c: late_init::Context) {
+        let late_init::Resources { mut usb_dev } = c.resources;
         defmt::info!("late init");
         dispatch_event::spawn(Message::LateInit).unwrap();
-        let mut writebuf: [u8; 8] = [0; 8];
-        writebuf[1] = 1;
-        writebuf[3] = 1;
-        writebuf[5] = 1;
-        writebuf[7] = 1;
-
-        i2c.lock(|i| i.write(0x3c, &writebuf[0..]).unwrap());
 
         if usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured {
             dispatch_event::spawn(Message::YouArePrimary).unwrap();

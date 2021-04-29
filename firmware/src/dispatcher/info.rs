@@ -76,6 +76,20 @@ impl super::State for Info {
                 self.usb_connected = is_connected;
                 None
             }
+            Message::MatrixKeyPress(i, j) => {
+                if !self.usb_connected {
+                    Some(Message::SecondaryKeyPress(i, 13 - j))
+                } else {
+                    None
+                }
+            }
+            Message::MatrixKeyRelease(i, j) => {
+                if !self.usb_connected {
+                    Some(Message::SecondaryKeyRelease(i, 13 - j))
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }

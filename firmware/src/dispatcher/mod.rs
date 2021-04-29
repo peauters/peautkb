@@ -46,7 +46,7 @@ impl Dispatcher {
         dispatch!(messages, message, self.oled, self.info);
 
         if message == Message::Tick {
-            self.update_display();
+            // self.update_display();
         }
         messages
     }

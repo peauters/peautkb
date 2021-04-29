@@ -77,9 +77,9 @@ impl super::State for OLED {
     type Messages = Option<Message>;
     fn handle_event(&mut self, message: Message) -> Self::Messages {
         match message {
-            Message::LateInit => self.init(),
-            Message::YouArePrimary => self.is_left(),
-            Message::YouAreSecondary => self.is_right(),
+            // Message::LateInit => self.init(),
+            // Message::YouArePrimary => self.is_left(),
+            // Message::YouAreSecondary => self.is_right(),
             _ => (),
         }
 
