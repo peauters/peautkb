@@ -1,15 +1,19 @@
 use super::*;
 
+use core::fmt::Write;
 use embedded_graphics::{
     fonts::{Font6x8, Text},
     pixelcolor::BinaryColor,
     style::TextStyleBuilder,
 };
+use heapless::{consts::*, String};
+use keyberon::layout::Event;
 
 #[derive(Copy, Clone, Default)]
 pub struct Info {
     usb_connected: bool,
     hand: Option<Hand>,
+    last_matrix: Option<Event>,
 }
 
 impl super::State for Info {
@@ -19,8 +23,7 @@ impl super::State for Info {
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand,
     {
-        defmt::info!("draw");
-
+        display.clear();
         let font_6x8 = TextStyleBuilder::new(Font6x8)
             .text_color(BinaryColor::On)
             .build();
@@ -56,6 +59,23 @@ impl super::State for Info {
             .draw(display)
             .unwrap();
 
+        Text::new("last mtx:", Point::new(0, 26))
+            .into_styled(font_6x8)
+            .draw(display)
+            .unwrap();
+
+        let mut last_matrix: String<U10> = heapless::String::new();
+        match self.last_matrix {
+            Some(Event::Press(i, j)) => write!(last_matrix, "p ({}, {})", i, j).unwrap(),
+            Some(Event::Release(i, j)) => write!(last_matrix, "r ({}, {})", i, j).unwrap(),
+            None => (),
+        };
+
+        Text::new(last_matrix.as_str(), Point::new(0, 39))
+            .into_styled(font_6x8)
+            .draw(display)
+            .unwrap();
+
         display.flush().unwrap();
     }
 
@@ -64,7 +84,7 @@ impl super::State for Info {
             Message::YouArePrimary => {
                 defmt::info!("I am primary");
                 self.hand = Some(Hand::Left);
-                Some(Message::YouAreSecondary)
+                None
             }
             Message::YouAreSecondary => {
                 defmt::info!("I am secondary");
@@ -77,6 +97,7 @@ impl super::State for Info {
                 None
             }
             Message::MatrixKeyPress(i, j) => {
+                self.last_matrix = Some(Event::Press(i, j));
                 if !self.usb_connected {
                     Some(Message::SecondaryKeyPress(i, 13 - j))
                 } else {
@@ -84,12 +105,14 @@ impl super::State for Info {
                 }
             }
             Message::MatrixKeyRelease(i, j) => {
+                self.last_matrix = Some(Event::Release(i, j));
                 if !self.usb_connected {
                     Some(Message::SecondaryKeyRelease(i, 13 - j))
                 } else {
                     None
                 }
             }
+            Message::Ping => Some(Message::Pong),
             _ => None,
         }
     }

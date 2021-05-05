@@ -17,7 +17,7 @@ stm32f4 = "0.11"
 cortex-m-rtic = "0.6.0-alpha.2"
 dwt-systick-monotonic = "0.1.0-alpha.1"
 usb-device = "0.2.8"
-keyberon = { git = "https://github.com/TeXitoi/keyberon" }
+keyberon = { path = "../../keyberon" }
 embedded-graphics = "0.6.2"
 ssd1306 = "0.5.1"
 embedded-hal = "0.2.4"
@@ -70,3 +70,8 @@ lto = true
 opt-level = 'z' # <-
 overflow-checks = false # <-
 
+[[example]]
+name = "dma"
+
+[[example]]
+name = "leds"

@@ -5,6 +5,7 @@ use ssd1306::{displaysize::DisplaySize, mode::GraphicsMode, prelude::*};
 
 pub mod display;
 mod info;
+pub mod leds;
 mod menu;
 
 pub struct Dispatcher {
@@ -12,6 +13,7 @@ pub struct Dispatcher {
     displayed_state: DisplayedState,
     info: info::Info,
     menu: menu::Menu,
+    leds: leds::LEDs,
 }
 
 macro_rules! display {
@@ -32,21 +34,22 @@ macro_rules! dispatch {
 }
 
 impl Dispatcher {
-    pub fn new(oled: display::OLED) -> Self {
+    pub fn new(oled: display::OLED, leds: leds::LEDs) -> Self {
         Dispatcher {
             oled,
             displayed_state: DisplayedState::Info,
             info: info::Info::default(),
             menu: menu::Menu::default(),
+            leds,
         }
     }
 
     pub fn dispatch(&mut self, message: Message) -> impl Iterator<Item = Message> {
         let messages = None.into_iter();
-        dispatch!(messages, message, self.oled, self.info);
+        dispatch!(messages, message, self.oled, self.info, self.leds);
 
         if message == Message::Tick {
-            // self.update_display();
+            self.update_display();
         }
         messages
     }
@@ -74,6 +77,8 @@ pub enum Message {
     MatrixKeyRelease(u8, u8),
     SecondaryKeyPress(u8, u8),
     SecondaryKeyRelease(u8, u8),
+    Ping,
+    Pong,
 }
 
 pub enum MessageType {
@@ -86,7 +91,8 @@ impl Message {
         match self {
             Message::YouAreSecondary
             | Message::SecondaryKeyPress(_, _)
-            | Message::SecondaryKeyRelease(_, _) => MessageType::Remote(self),
+            | Message::SecondaryKeyRelease(_, _)
+            | Message::Pong => MessageType::Remote(self),
             _ => MessageType::Local(self),
         }
     }

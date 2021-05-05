@@ -1,6 +1,6 @@
 use crate::hal::{
     gpio::{
-        gpiob::{PB8, PB9},
+        gpiob::{PB6, PB7},
         AlternateOD, AF4,
     },
     i2c::I2c,
@@ -16,7 +16,7 @@ use ssd1306::{
 use super::*;
 
 type DisplayType = GraphicsMode<
-    I2CInterface<I2c<stm32::I2C1, (PB8<AlternateOD<AF4>>, PB9<AlternateOD<AF4>>)>>,
+    I2CInterface<I2c<stm32::I2C1, (PB6<AlternateOD<AF4>>, PB7<AlternateOD<AF4>>)>>,
     DisplaySize128x64,
 >;
 
@@ -28,11 +28,11 @@ pub struct OLED {
 impl OLED {
     pub fn new(
         i2c1: stm32::I2C1,
-        pb8: PB8<AlternateOD<AF4>>,
-        pb9: PB9<AlternateOD<AF4>>,
+        pb6: PB6<AlternateOD<AF4>>,
+        pb7: PB7<AlternateOD<AF4>>,
         clocks: Clocks,
     ) -> Self {
-        let i2c = I2c::new(i2c1, (pb8, pb9), 400.khz(), clocks);
+        let i2c = I2c::new(i2c1, (pb6, pb7), 400.khz(), clocks);
         let interface = I2CDIBuilder::new().init(i2c);
         OLED {
             display: Builder::new().connect(interface).into(),
@@ -42,24 +42,26 @@ impl OLED {
 
     pub fn display<S: super::State>(&mut self, state: S) {
         if self.initd {
-            defmt::info!("writing");
-
             state.write_to_display(&mut self.display);
         }
     }
 
     fn is_left(&mut self) {
-        self.display
-            .set_rotation(DisplayRotation::Rotate90)
-            .unwrap();
-        self.display.clear();
-    }
-
-    fn is_right(&mut self) {
+        defmt::info!("is_left");
         self.display
             .set_rotation(DisplayRotation::Rotate270)
             .unwrap();
         self.display.clear();
+        self.display.flush().unwrap();
+    }
+
+    fn is_right(&mut self) {
+        defmt::info!("is_right");
+        self.display
+            .set_rotation(DisplayRotation::Rotate90)
+            .unwrap();
+        self.display.clear();
+        self.display.flush().unwrap();
     }
 
     fn init(&mut self) {
@@ -77,9 +79,9 @@ impl super::State for OLED {
     type Messages = Option<Message>;
     fn handle_event(&mut self, message: Message) -> Self::Messages {
         match message {
-            // Message::LateInit => self.init(),
-            // Message::YouArePrimary => self.is_left(),
-            // Message::YouAreSecondary => self.is_right(),
+            Message::LateInit => self.init(),
+            Message::YouArePrimary => self.is_left(),
+            Message::YouAreSecondary => self.is_right(),
             _ => (),
         }
 
