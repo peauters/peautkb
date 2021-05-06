@@ -109,6 +109,7 @@ mod app {
         timer_init: bool,
         rotary: Rotary,
         last_rotary: Option<Direction>,
+        custom_action_state: CustomActionState,
     }
 
     static mut EP_MEMORY: [u32; 1024] = [0; 1024];
@@ -222,6 +223,7 @@ mod app {
                 timer_init: false,
                 rotary,
                 last_rotary: None,
+                custom_action_state: CustomActionState::new(),
             },
             init::Monotonics(mono),
         )
@@ -383,19 +385,16 @@ mod app {
         dispatch_event::spawn(Message::Tick).ok();
     }
 
-    #[task(resources = [layout, usb_dev, usb_mediakeys_class], capacity = 64)]
+    #[task(resources = [layout, usb_dev, usb_mediakeys_class, custom_action_state], capacity = 64)]
     fn send_hid_report(c: send_hid_report::Context) {
         let send_hid_report::Resources {
             mut layout,
             mut usb_dev,
             mut usb_mediakeys_class,
+            mut custom_action_state,
         } = c.resources;
 
-        let maybe_mk_report = match layout.lock(|l| l.tick()) {
-            CustomEvent::Press(PkbAction::MediaKey(mk)) => Some(mk.into()),
-            CustomEvent::Release(PkbAction::MediaKey(_)) => Some(MediaKeyHidReport::default()),
-            _ => None,
-        };
+        let maybe_mk_report = custom_action_state.lock(|c| c.process(layout.lock(|l| l.tick())));
 
         if let Some(mut mk_report) = maybe_mk_report {
             if usb_mediakeys_class.lock(|k| k.device_mut().set_report(mk_report.clone()))
@@ -406,6 +405,7 @@ mod app {
         }
 
         let mut report: KbHidReport = layout.lock(|l| l.keycodes().collect());
+        custom_action_state.lock(|c| c.modify_kb_report(&mut report));
         if !usb_mediakeys_class.lock(|k| k.device_mut().set_kb_report(report.clone())) {
             return;
         }

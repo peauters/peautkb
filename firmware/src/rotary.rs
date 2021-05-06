@@ -27,11 +27,11 @@ impl Rotary {
             | ((true, false), (false, false))
             | ((true, true), (true, false)) => {
                 self.last = next;
-                if self.last_direction == Some(Direction::ACW) {
+                if self.last_direction == Some(Direction::CW) {
                     self.last_direction = None;
-                    Some(Direction::ACW)
+                    Some(Direction::CW)
                 } else {
-                    self.last_direction = Some(Direction::ACW);
+                    self.last_direction = Some(Direction::CW);
                     None
                 }
             }
