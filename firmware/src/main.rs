@@ -10,8 +10,8 @@ use stm32f4xx_hal as hal;
 
 pub mod custom_action;
 pub mod dispatcher;
+pub mod keyboard;
 pub mod keymap;
-pub mod media_keys;
 pub mod rotary;
 pub mod serial;
 
@@ -21,8 +21,8 @@ mod app {
     use crate::custom_action::*;
     use crate::dispatcher::display::OLED;
     use crate::dispatcher::*;
+    use crate::keyboard::*;
     use crate::keymap::LAYERS;
-    use crate::media_keys::*;
     use crate::rotary::*;
     use crate::serial::*;
 
@@ -42,7 +42,6 @@ mod app {
     use keyberon::debounce::Debouncer;
     use keyberon::hid;
     use keyberon::impl_heterogenous_array;
-    use keyberon::key_code::KbHidReport;
     use keyberon::layout::{CustomEvent, Event, Layout};
     use keyberon::matrix::{Matrix, PressedKeys};
 
@@ -56,8 +55,7 @@ mod app {
     #[monotonic(binds = SysTick, default = true)]
     type Mono = DwtSystick<48_000_000>; // 48 MHz
 
-    type UsbKeyboardClass = keyberon::Class<'static, otg_fs::UsbBusType, ()>;
-    type UsbMediaKeysClass = hid::HidClass<'static, otg_fs::UsbBusType, MediaKeys>;
+    type UsbMediaKeysClass = hid::HidClass<'static, otg_fs::UsbBusType, Peautkb>;
     type UsbDevice = usb_device::device::UsbDevice<'static, otg_fs::UsbBusType>;
     /// USB VIP for a generic keyboard from
     /// https://github.com/obdev/v-usb/blob/master/usbdrv/USB-IDs-for-free.txt
@@ -100,7 +98,6 @@ mod app {
         scan_timer: timer::Timer<stm32::TIM3>,
         tick_timer: timer::Timer<stm32::TIM4>,
         usb_dev: app::UsbDevice,
-        usb_keyboard_class: app::UsbKeyboardClass,
         usb_mediakeys_class: app::UsbMediaKeysClass,
         tx: TxComms,
         rx: RxComms,
@@ -168,8 +165,7 @@ mod app {
         *USB_BUS = Some(otg_fs::UsbBusType::new(usb, unsafe { &mut EP_MEMORY }));
         let usb_bus = USB_BUS.as_ref().unwrap();
 
-        let usb_keyboard_class = keyberon::new_class(usb_bus, ());
-        let usb_mediakeys_class = hid::HidClass::new(MediaKeys::default(), usb_bus);
+        let usb_mediakeys_class = hid::HidClass::new(Peautkb::default(), usb_bus);
         let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
             .manufacturer("peauters.dev")
             .product("peautkb")
@@ -214,7 +210,6 @@ mod app {
             init::LateResources {
                 scan_timer,
                 tick_timer,
-                usb_keyboard_class,
                 usb_mediakeys_class,
                 usb_dev,
                 tx,
@@ -272,22 +267,18 @@ mod app {
         });
     }
 
-    #[task(binds = OTG_FS, priority = 4, resources = [usb_dev, usb_keyboard_class, usb_mediakeys_class, initd])]
+    #[task(binds = OTG_FS, priority = 4, resources = [usb_dev, usb_mediakeys_class, initd])]
     fn usb_rx(c: usb_rx::Context) {
         let usb_rx::Resources {
             mut usb_dev,
-            mut usb_keyboard_class,
             mut usb_mediakeys_class,
             mut initd,
         } = c.resources;
         usb_dev.lock(|dev| {
-            usb_keyboard_class.lock(|kb| {
-                usb_mediakeys_class.lock(|mk| {
-                    if dev.poll(&mut [kb, mk]) {
-                        kb.poll();
-                        mk.poll();
-                    }
-                })
+            usb_mediakeys_class.lock(|mk| {
+                if dev.poll(&mut [mk]) {
+                    mk.poll();
+                }
             })
         });
         initd.lock(|b| {
@@ -298,21 +289,17 @@ mod app {
         });
     }
 
-    #[task(binds = OTG_FS_WKUP, priority = 2, resources = [usb_dev, usb_keyboard_class, usb_mediakeys_class])]
+    #[task(binds = OTG_FS_WKUP, priority = 2, resources = [usb_dev, usb_mediakeys_class])]
     fn usb_wkup(c: usb_wkup::Context) {
         let usb_wkup::Resources {
             mut usb_dev,
-            mut usb_keyboard_class,
             mut usb_mediakeys_class,
         } = c.resources;
         usb_dev.lock(|dev| {
-            usb_keyboard_class.lock(|kb| {
-                usb_mediakeys_class.lock(|mk| {
-                    if dev.poll(&mut [kb, mk]) {
-                        kb.poll();
-                        mk.poll();
-                    }
-                })
+            usb_mediakeys_class.lock(|mk| {
+                if dev.poll(&mut [mk]) {
+                    mk.poll();
+                }
             })
         });
     }
@@ -396,46 +383,36 @@ mod app {
         dispatch_event::spawn(Message::Tick).ok();
     }
 
-    #[task(resources = [layout, usb_dev, usb_keyboard_class, usb_mediakeys_class], capacity = 64)]
+    #[task(resources = [layout, usb_dev, usb_mediakeys_class], capacity = 64)]
     fn send_hid_report(c: send_hid_report::Context) {
         let send_hid_report::Resources {
             mut layout,
             mut usb_dev,
-            mut usb_keyboard_class,
             mut usb_mediakeys_class,
         } = c.resources;
 
         let maybe_mk_report = match layout.lock(|l| l.tick()) {
-            CustomEvent::Press(PkbAction::MediaKey(mk)) => {
-                defmt::info!("got press for {}", *mk as u8);
-                Some(mk.into())
-            }
-            CustomEvent::Release(PkbAction::MediaKey(mk)) => {
-                defmt::info!("got release for {}", *mk as u8);
-                Some(MediaKeyHidReport::default())
-            }
+            CustomEvent::Press(PkbAction::MediaKey(mk)) => Some(mk.into()),
+            CustomEvent::Release(PkbAction::MediaKey(_)) => Some(MediaKeyHidReport::default()),
             _ => None,
         };
 
-        if let Some(mk_report) = maybe_mk_report {
-            defmt::info!("About to send: {}", mk_report.as_bytes());
+        if let Some(mut mk_report) = maybe_mk_report {
             if usb_mediakeys_class.lock(|k| k.device_mut().set_report(mk_report.clone()))
                 && usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured
             {
-                defmt::info!("Sending mk report {}", mk_report.as_bytes());
                 while let Ok(0) = usb_mediakeys_class.lock(|m| m.write(mk_report.as_bytes())) {}
             }
         }
 
-        let report: KbHidReport = layout.lock(|l| l.keycodes().collect());
-        if !usb_keyboard_class.lock(|k| k.device_mut().set_keyboard_report(report.clone())) {
+        let mut report: KbHidReport = layout.lock(|l| l.keycodes().collect());
+        if !usb_mediakeys_class.lock(|k| k.device_mut().set_kb_report(report.clone())) {
             return;
         }
         if usb_dev.lock(|d| d.state()) != UsbDeviceState::Configured {
             return;
         }
-        defmt::info!("Sending k report {}", report.as_bytes());
-        while let Ok(0) = usb_keyboard_class.lock(|k| k.write(report.as_bytes())) {}
+        while let Ok(0) = usb_mediakeys_class.lock(|k| k.write(report.as_bytes())) {}
     }
 
     #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer], capacity = 30)]

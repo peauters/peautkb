@@ -1,4 +1,4 @@
-use crate::media_keys::MediaKey;
+use crate::keyboard::MediaKey;
 
 pub enum PkbAction {
     MediaKey(MediaKey),
