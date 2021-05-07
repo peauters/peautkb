@@ -40,7 +40,7 @@ impl OLED {
         }
     }
 
-    pub fn display<S: super::State>(&mut self, state: S) {
+    pub fn display<S: super::State>(&mut self, state: &S) {
         if self.initd {
             state.write_to_display(&mut self.display);
         }

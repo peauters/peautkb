@@ -3,10 +3,11 @@ use serde::{Deserialize, Serialize};
 use embedded_graphics::prelude::*;
 use ssd1306::{displaysize::DisplaySize, mode::GraphicsMode, prelude::*};
 
+mod bongo;
 pub mod display;
 mod info;
 pub mod leds;
-mod menu;
+pub mod menu;
 
 pub struct Dispatcher {
     oled: display::OLED,
@@ -14,6 +15,7 @@ pub struct Dispatcher {
     info: info::Info,
     menu: menu::Menu,
     leds: leds::LEDs,
+    bongo: bongo::Bongo,
 }
 
 macro_rules! display {
@@ -37,19 +39,22 @@ impl Dispatcher {
     pub fn new(oled: display::OLED, leds: leds::LEDs) -> Self {
         Dispatcher {
             oled,
-            displayed_state: DisplayedState::Info,
+            displayed_state: DisplayedState::default(),
             info: info::Info::default(),
             menu: menu::Menu::default(),
             leds,
+            bongo: bongo::Bongo::default(),
         }
     }
 
     pub fn dispatch(&mut self, message: Message) -> impl Iterator<Item = Message> {
         let messages = None.into_iter();
-        dispatch!(messages, message, self.oled, self.info, self.leds);
+        dispatch!(messages, message, self.oled, self.info, self.leds, self.menu, self.bongo);
 
-        if message == Message::Tick {
-            self.update_display();
+        match message {
+            Message::Tick => self.update_display(),
+            Message::DisplaySelect(d) => self.displayed_state = d,
+            _ => (),
         }
         messages
     }
@@ -58,13 +63,14 @@ impl Dispatcher {
         display!(
             self.displayed_state,
             self.oled,
-            (DisplayedState::Info, self.info),
-            (DisplayedState::Menu, self.menu)
+            (DisplayedState::Info, &self.info),
+            (DisplayedState::Menu, &self.menu),
+            (DisplayedState::Bongo, &self.bongo)
         );
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Message {
     LateInit,
     InitTimers,
@@ -84,6 +90,9 @@ pub enum Message {
     CtrlHeld,
     CtrlReleased,
     CurrentLayer(u8),
+    DisplaySelect(DisplayedState),
+    Menu(menu::MenuAction),
+    SetDefaultLayer(usize),
 }
 
 pub enum MessageType {
@@ -103,10 +112,17 @@ impl Message {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum DisplayedState {
     Info,
     Menu,
+    Bongo,
+}
+
+impl Default for DisplayedState {
+    fn default() -> Self {
+        DisplayedState::Info
+    }
 }
 
 pub trait State {

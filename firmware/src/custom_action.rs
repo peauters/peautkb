@@ -1,4 +1,4 @@
-use crate::dispatcher::Message;
+use crate::dispatcher::{menu::MenuAction, DisplayedState, Message};
 use crate::keyboard::*;
 
 use keyberon::key_code::KeyCode;
@@ -6,6 +6,11 @@ use keyberon::layout::CustomEvent;
 
 pub enum PkbAction {
     MediaKey(MediaKey),
+    MenuOpen,
+    MenuClose,
+    MenuUp,
+    MenuDown,
+    MenuSelect,
     HoldCmd,
     ReleaseCmd,
     HoldCtrl,
@@ -49,6 +54,19 @@ impl CustomActionState {
             CustomEvent::Release(PkbAction::ReleaseCtrl) => {
                 self.hold_ctrl = false;
                 (None, Some(Message::CtrlReleased))
+            }
+            CustomEvent::Release(PkbAction::MenuOpen) => {
+                (None, Some(Message::DisplaySelect(DisplayedState::Menu)))
+            }
+            CustomEvent::Release(PkbAction::MenuUp) => (None, Some(Message::Menu(MenuAction::Up))),
+            CustomEvent::Release(PkbAction::MenuDown) => {
+                (None, Some(Message::Menu(MenuAction::Down)))
+            }
+            CustomEvent::Release(PkbAction::MenuSelect) => {
+                (None, Some(Message::Menu(MenuAction::Select)))
+            }
+            CustomEvent::Release(PkbAction::MenuClose) => {
+                (None, Some(Message::Menu(MenuAction::Close)))
             }
             _ => (None, None),
         }

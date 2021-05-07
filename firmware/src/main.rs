@@ -12,6 +12,7 @@ pub mod custom_action;
 pub mod dispatcher;
 pub mod keyboard;
 pub mod keymap;
+pub(crate) mod multi;
 pub mod rotary;
 pub mod serial;
 
@@ -249,15 +250,15 @@ mod app {
             } else {
                 rx.lock(|rx| {
                     if let Some(message) = rx.read_event() {
-                        dispatch_event::spawn(message).unwrap();
+                        dispatch_event::spawn(message).ok();
                         match message {
                             Message::SecondaryKeyPress(i, j) => {
                                 layout.lock(|l| l.event(Event::Press(i, j)));
-                                send_hid_report::spawn().unwrap();
+                                send_hid_report::spawn().ok();
                             }
                             Message::SecondaryKeyRelease(i, j) => {
                                 layout.lock(|l| l.event(Event::Release(i, j)));
-                                send_hid_report::spawn().unwrap();
+                                send_hid_report::spawn().ok();
                             }
                             _ => (),
                         }
@@ -339,7 +340,7 @@ mod app {
             })
         });
         if dirty {
-            send_hid_report::spawn().unwrap();
+            send_hid_report::spawn().ok();
         }
     }
 
@@ -387,7 +388,7 @@ mod app {
         while let Ok(0) = usb_mediakeys_class.lock(|k| k.write(report.as_bytes())) {}
     }
 
-    #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer], capacity = 30)]
+    #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer, layout], capacity = 30)]
     fn dispatch_event(c: dispatch_event::Context, message: Message) {
         let dispatch_event::Resources {
             mut dispatcher,
@@ -395,6 +396,7 @@ mod app {
             mut timer_init,
             mut scan_timer,
             mut tick_timer,
+            mut layout,
         } = c.resources;
 
         dispatcher.lock(|d| {
@@ -402,7 +404,7 @@ mod app {
                 .map(Message::to_type)
                 .for_each(|t| match t {
                     MessageType::Local(m) => {
-                        dispatch_event::spawn(m).unwrap();
+                        dispatch_event::spawn(m).ok();
                         match m {
                             Message::InitTimers => timer_init.lock(|t| {
                                 if !*t {
@@ -411,6 +413,9 @@ mod app {
                                     *t = true;
                                 }
                             }),
+                            Message::SetDefaultLayer(i) => {
+                                layout.lock(|l| l.set_default_layer(i));
+                            }
                             _ => (),
                         }
                     }
@@ -434,13 +439,13 @@ mod app {
     fn late_init(c: late_init::Context) {
         let late_init::Resources { mut usb_dev } = c.resources;
         defmt::info!("late init");
-        dispatch_event::spawn(Message::LateInit).unwrap();
+        dispatch_event::spawn(Message::LateInit).ok();
 
         if usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured {
-            dispatch_event::spawn(Message::YouArePrimary).unwrap();
-            dispatch_event::spawn(Message::UsbConnected(true)).unwrap();
+            dispatch_event::spawn(Message::YouArePrimary).ok();
+            dispatch_event::spawn(Message::UsbConnected(true)).ok();
         } else {
-            dispatch_event::spawn(Message::YouAreSecondary).unwrap();
+            dispatch_event::spawn(Message::YouAreSecondary).ok();
         }
     }
 }

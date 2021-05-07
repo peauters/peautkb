@@ -15,11 +15,17 @@ const START_CTRLT: Action<PkbAction> =
 const END_CTRLT: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::ReleaseCtrl), d(0)]);
 const SHFT_TAB: Action<PkbAction> = m(&[LShift, Tab]);
 
+const MENU_OPEN: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::MenuOpen), d(4)]);
+const MENU_UP: Action<PkbAction> = Custom(PkbAction::MenuUp);
+const MENU_DOWN: Action<PkbAction> = Custom(PkbAction::MenuDown);
+const MENU_SELECT: Action<PkbAction> = Custom(PkbAction::MenuSelect);
+const MENU_CLOSE: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::MenuClose), d(0)]);
+
 #[rustfmt::skip]
 pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
     &[
         &[k(Tab),     k(Q),         k(W),     k(F),       k(P),       k(B),      k(Escape),          k(Insert),  k(J),     k(L),        k(U),        k(Y),      k(Quote),   k(SColon)],
-        &[k(LCtrl),   k(A),         k(R),     k(S),       k(T),       k(G),      NoOp,               k(Delete),  k(K),     k(N),        k(E),        k(I),      k(O),       k(Bslash)],
+        &[k(LCtrl),   k(A),         k(R),     k(S),       k(T),       k(G),      MENU_OPEN,          k(Delete),  k(K),     k(N),        k(E),        k(I),      k(O),       k(Bslash)],
         &[k(LShift),  k(Z),         k(X),     k(C),       k(D),       k(V),      k(Mute),            PLAY_PAUSE, k(M),     k(H),        k(Comma),    k(Dot),    k(Slash),   k(RShift)],
         &[k(VolUp),   k(VolDown),   k(LAlt),  k(Enter),   k(BSpace),  k(LGui),   l(1),               l(2),       k(RGui),  k(Space),    k(RCtrl),    k(RAlt),   PREVIOUS,   NEXT],
     ], &[
@@ -37,6 +43,12 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,       NoOp,      NoOp,               NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,       NoOp,      END_CTRLT,          END_CMDT,   NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
         &[k(Tab),     SHFT_TAB,     Trans,    Trans,      Trans,      Trans,     Trans,              Trans,      Trans,    Trans,       Trans,       Trans,     k(Left),    k(Right)],
+    ], 
+    &[
+        &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,       NoOp,      NoOp,               NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,       NoOp,      MENU_CLOSE,         NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,       NoOp,      MENU_SELECT,        NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
+        &[MENU_DOWN,  MENU_UP,      Trans,    Trans,      Trans,      Trans,     Trans,              Trans,      Trans,    Trans,       Trans,       Trans,     NoOp,       NoOp],
     ], 
 ];
 

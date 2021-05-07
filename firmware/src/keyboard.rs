@@ -49,7 +49,7 @@ const REPORT_DESCRIPTOR : &[u8] = &[
     0xC0,
 ];
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum MediaKey {
     Record = 0x0B2,
@@ -149,7 +149,7 @@ impl From<&MediaKey> for MediaKeyHidReport {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct KbHidReport([u8; 9]);
 
 impl core::iter::FromIterator<KeyCode> for KbHidReport {

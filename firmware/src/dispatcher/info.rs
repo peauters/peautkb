@@ -1,12 +1,10 @@
 use super::*;
 
-use core::fmt::Write;
 use embedded_graphics::{
     fonts::{Font6x8, Text},
     pixelcolor::BinaryColor,
     style::TextStyleBuilder,
 };
-use heapless::{consts::*, String};
 use keyberon::layout::Event;
 
 #[derive(Copy, Clone, Default)]
@@ -66,18 +64,6 @@ impl super::State for Info {
             .unwrap();
 
         Text::new("last mtx:", Point::new(0, 26))
-            .into_styled(font_6x8)
-            .draw(display)
-            .unwrap();
-
-        let mut last_matrix: String<U10> = heapless::String::new();
-        match self.last_matrix {
-            Some(Event::Press(i, j)) => write!(last_matrix, "p ({}, {})", i, j).unwrap(),
-            Some(Event::Release(i, j)) => write!(last_matrix, "r ({}, {})", i, j).unwrap(),
-            None => (),
-        };
-
-        Text::new(last_matrix.as_str(), Point::new(0, 39))
             .into_styled(font_6x8)
             .draw(display)
             .unwrap();
@@ -163,7 +149,7 @@ impl super::State for Info {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Hand {
     Left,
     Right,

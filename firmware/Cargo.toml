@@ -28,6 +28,7 @@ serde = { version = "1.0.125", default-features = false, features = ["derive"] }
 postcard = "0.6.1"
 heapless = "0.6.1"
 generic-array = "0.14"
+numtoa = "0.2.3"
 
 
 [dependencies.stm32f4xx-hal]

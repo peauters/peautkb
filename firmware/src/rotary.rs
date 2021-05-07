@@ -86,7 +86,7 @@ impl Rotary {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Direction {
     CW,
     ACW,
