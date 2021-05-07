@@ -6,15 +6,22 @@ pub enum PkbAction {
     MediaKey(MediaKey),
     HoldCmd,
     ReleaseCmd,
+    HoldCtrl,
+    ReleaseCtrl,
 }
 
+#[derive(Default)]
 pub struct CustomActionState {
     hold_cmd: bool,
+    hold_ctrl: bool,
 }
 
 impl CustomActionState {
     pub fn new() -> Self {
-        CustomActionState { hold_cmd: false }
+        CustomActionState {
+            hold_cmd: false,
+            hold_ctrl: false,
+        }
     }
     pub fn process(&mut self, event: CustomEvent<PkbAction>) -> Option<MediaKeyHidReport> {
         match event {
@@ -28,6 +35,14 @@ impl CustomActionState {
                 self.hold_cmd = false;
                 None
             }
+            CustomEvent::Press(PkbAction::HoldCtrl) => {
+                self.hold_ctrl = true;
+                None
+            }
+            CustomEvent::Release(PkbAction::ReleaseCtrl) => {
+                self.hold_ctrl = false;
+                None
+            }
             _ => None,
         }
     }
@@ -35,6 +50,10 @@ impl CustomActionState {
     pub fn modify_kb_report(&self, report: &mut KbHidReport) {
         if self.hold_cmd {
             report.pressed(KeyCode::LGui);
+        }
+
+        if self.hold_ctrl {
+            report.pressed(KeyCode::LCtrl);
         }
     }
 }

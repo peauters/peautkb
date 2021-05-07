@@ -42,7 +42,7 @@ mod app {
     use keyberon::debounce::Debouncer;
     use keyberon::hid;
     use keyberon::impl_heterogenous_array;
-    use keyberon::layout::{CustomEvent, Event, Layout};
+    use keyberon::layout::{Event, Layout};
     use keyberon::matrix::{Matrix, PressedKeys};
 
     use crate::app;
@@ -108,7 +108,6 @@ mod app {
         initd: bool,
         timer_init: bool,
         rotary: Rotary,
-        last_rotary: Option<Direction>,
         custom_action_state: CustomActionState,
     }
 
@@ -152,7 +151,7 @@ mod app {
         let pb4 = gpiob.pb4.into_pull_up_input();
         let pb5 = gpiob.pb5.into_pull_up_input();
 
-        let rotary = Rotary::new(pb4, pb5);
+        let rotary = Rotary::new(pb4, pb5, (3, 0), (3, 1));
 
         // USB keyboard
         let usb = otg_fs::USB {
@@ -222,7 +221,6 @@ mod app {
                 layout,
                 timer_init: false,
                 rotary,
-                last_rotary: None,
                 custom_action_state: CustomActionState::new(),
             },
             init::Monotonics(mono),
@@ -308,7 +306,7 @@ mod app {
 
     #[task(binds = TIM3,
             priority = 3,
-            resources = [scan_timer, debouncer, matrix, layout, rotary, last_rotary])]
+            resources = [scan_timer, debouncer, matrix, layout, rotary])]
     fn scan(c: scan::Context) {
         let scan::Resources {
             mut scan_timer,
@@ -316,7 +314,6 @@ mod app {
             mut matrix,
             mut layout,
             mut rotary,
-            mut last_rotary,
         } = c.resources;
         scan_timer.lock(|t| t.wait().ok());
 
@@ -325,51 +322,22 @@ mod app {
         let pressed_keys = matrix.lock(|m| m.get().unwrap());
         layout.lock(|l| {
             debouncer.lock(|d| {
-                for event in d.events(pressed_keys) {
-                    dirty = true;
-                    l.event(event);
-                    match event {
-                        Event::Press(i, j) => {
-                            dispatch_event::spawn(Message::MatrixKeyPress(i, j)).ok();
-                        }
-                        Event::Release(i, j) => {
-                            dispatch_event::spawn(Message::MatrixKeyRelease(i, j)).ok();
+                rotary.lock(|r| {
+                    for event in d.events(pressed_keys).chain(r.poll()) {
+                        dirty = true;
+                        l.event(event);
+                        match event {
+                            Event::Press(i, j) => {
+                                dispatch_event::spawn(Message::MatrixKeyPress(i, j)).ok();
+                            }
+                            Event::Release(i, j) => {
+                                dispatch_event::spawn(Message::MatrixKeyRelease(i, j)).ok();
+                            }
                         }
                     }
-                }
-            });
-            last_rotary.lock(|lr| match lr {
-                Some(Direction::CW) => {
-                    dirty = true;
-                    l.event(Event::Release(3, 0));
-                    dispatch_event::spawn(Message::MatrixKeyRelease(3, 0)).ok();
-                    *lr = None
-                }
-                Some(Direction::ACW) => {
-                    dirty = true;
-                    l.event(Event::Release(3, 1));
-                    dispatch_event::spawn(Message::MatrixKeyRelease(3, 1)).ok();
-                    *lr = None
-                }
-                None => (),
-            });
-            rotary.lock(|r| match r.poll() {
-                Some(Direction::CW) => {
-                    dirty = true;
-                    l.event(Event::Press(3, 0));
-                    last_rotary.lock(|lr| *lr = Some(Direction::CW));
-                    dispatch_event::spawn(Message::MatrixKeyPress(3, 0)).ok();
-                }
-                Some(Direction::ACW) => {
-                    dirty = true;
-                    l.event(Event::Press(3, 1));
-                    last_rotary.lock(|lr| *lr = Some(Direction::ACW));
-                    dispatch_event::spawn(Message::MatrixKeyPress(3, 1)).ok();
-                }
-                None => (),
-            });
+                })
+            })
         });
-
         if dirty {
             send_hid_report::spawn().unwrap();
         }
