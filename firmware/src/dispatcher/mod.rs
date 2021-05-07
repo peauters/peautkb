@@ -79,6 +79,11 @@ pub enum Message {
     SecondaryKeyRelease(u8, u8),
     Ping,
     Pong,
+    CmdHeld,
+    CmdReleased,
+    CtrlHeld,
+    CtrlReleased,
+    CurrentLayer(u8),
 }
 
 pub enum MessageType {

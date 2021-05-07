@@ -1,4 +1,6 @@
+use crate::dispatcher::Message;
 use crate::keyboard::*;
+
 use keyberon::key_code::KeyCode;
 use keyberon::layout::CustomEvent;
 
@@ -23,27 +25,32 @@ impl CustomActionState {
             hold_ctrl: false,
         }
     }
-    pub fn process(&mut self, event: CustomEvent<PkbAction>) -> Option<MediaKeyHidReport> {
+    pub fn process(
+        &mut self,
+        event: CustomEvent<PkbAction>,
+    ) -> (Option<MediaKeyHidReport>, impl IntoIterator<Item = Message>) {
         match event {
-            CustomEvent::Press(PkbAction::MediaKey(mk)) => Some(mk.into()),
-            CustomEvent::Release(PkbAction::MediaKey(_)) => Some(MediaKeyHidReport::default()),
+            CustomEvent::Press(PkbAction::MediaKey(mk)) => (Some(mk.into()), None),
+            CustomEvent::Release(PkbAction::MediaKey(_)) => {
+                (Some(MediaKeyHidReport::default()), None)
+            }
             CustomEvent::Press(PkbAction::HoldCmd) => {
                 self.hold_cmd = true;
-                None
+                (None, Some(Message::CmdHeld))
             }
             CustomEvent::Release(PkbAction::ReleaseCmd) => {
                 self.hold_cmd = false;
-                None
+                (None, Some(Message::CmdReleased))
             }
             CustomEvent::Press(PkbAction::HoldCtrl) => {
                 self.hold_ctrl = true;
-                None
+                (None, Some(Message::CtrlHeld))
             }
             CustomEvent::Release(PkbAction::ReleaseCtrl) => {
                 self.hold_ctrl = false;
-                None
+                (None, Some(Message::CtrlReleased))
             }
-            _ => None,
+            _ => (None, None),
         }
     }
 

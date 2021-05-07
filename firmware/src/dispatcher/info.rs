@@ -14,6 +14,15 @@ pub struct Info {
     usb_connected: bool,
     hand: Option<Hand>,
     last_matrix: Option<Event>,
+    cmd_held: bool,
+    ctrl_held: bool,
+}
+
+const fn bool_to_string(b: bool) -> &'static str {
+    match b {
+        true => "true",
+        false => "false",
+    }
 }
 
 impl super::State for Info {
@@ -49,10 +58,7 @@ impl super::State for Info {
             .draw(display)
             .unwrap();
 
-        let usb = match self.usb_connected {
-            true => "true",
-            false => "false",
-        };
+        let usb = bool_to_string(self.usb_connected);
 
         Text::new(usb, Point::new(30, 13))
             .into_styled(font_6x8)
@@ -75,6 +81,27 @@ impl super::State for Info {
             .into_styled(font_6x8)
             .draw(display)
             .unwrap();
+
+        if self.hand == Some(Hand::Left) {
+            Text::new("cmd:", Point::new(0, 52))
+                .into_styled(font_6x8)
+                .draw(display)
+                .unwrap();
+            let cmd = bool_to_string(self.cmd_held);
+            Text::new(cmd, Point::new(30, 52))
+                .into_styled(font_6x8)
+                .draw(display)
+                .unwrap();
+            Text::new("ctrl:", Point::new(0, 65))
+                .into_styled(font_6x8)
+                .draw(display)
+                .unwrap();
+            let ctrl = bool_to_string(self.ctrl_held);
+            Text::new(ctrl, Point::new(36, 65))
+                .into_styled(font_6x8)
+                .draw(display)
+                .unwrap();
+        }
 
         display.flush().unwrap();
     }
@@ -112,13 +139,31 @@ impl super::State for Info {
                     None
                 }
             }
+            Message::CmdHeld => {
+                defmt::info!("Cmd Held");
+                self.cmd_held = true;
+                None
+            }
+            Message::CmdReleased => {
+                self.cmd_held = false;
+                None
+            }
+            Message::CtrlHeld => {
+                defmt::info!("Ctrl Held");
+                self.ctrl_held = true;
+                None
+            }
+            Message::CtrlReleased => {
+                self.ctrl_held = false;
+                None
+            }
             Message::Ping => Some(Message::Pong),
             _ => None,
         }
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Hand {
     Left,
     Right,

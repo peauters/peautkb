@@ -362,8 +362,12 @@ mod app {
             mut custom_action_state,
         } = c.resources;
 
-        let maybe_mk_report = custom_action_state.lock(|c| c.process(layout.lock(|l| l.tick())));
+        let (maybe_mk_report, messages) =
+            custom_action_state.lock(|c| c.process(layout.lock(|l| l.tick())));
 
+        for m in messages.into_iter() {
+            dispatch_event::spawn(m).ok();
+        }
         if let Some(mut mk_report) = maybe_mk_report {
             if usb_mediakeys_class.lock(|k| k.device_mut().set_report(mk_report.clone()))
                 && usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured
