@@ -47,6 +47,7 @@ impl Dispatcher {
         }
     }
 
+    #[inline]
     pub fn dispatch(&mut self, message: Message) -> impl Iterator<Item = Message> {
         let messages = None.into_iter();
 

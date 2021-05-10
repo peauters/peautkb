@@ -177,12 +177,12 @@ impl<'a> Default for Bongo {
 impl State for Bongo {
     type Messages = Option<Message>;
 
+    #[inline]
     fn handle_event(&mut self, message: Message) -> Self::Messages {
         match message {
             Message::MatrixKeyRelease(_, _) => {
                 self.bongo();
-                // Some(Message::Bongo)
-                None
+                Some(Message::Bongo)
             }
             Message::Bongo => {
                 self.bongo();

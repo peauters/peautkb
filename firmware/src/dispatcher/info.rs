@@ -32,6 +32,7 @@ impl super::State for Info {
         DI: WriteOnlyDataCommand,
     {
         display.clear();
+
         let font_6x8 = TextStyleBuilder::new(Font6x8)
             .text_color(BinaryColor::On)
             .build();
@@ -94,7 +95,7 @@ impl super::State for Info {
                 .unwrap();
         }
 
-        display.flush().ok();
+        display.flush().unwrap();
     }
 
     fn handle_event(&mut self, message: Message) -> Self::Messages {
@@ -139,7 +140,6 @@ impl super::State for Info {
                 None
             }
             Message::CmdHeld => {
-                defmt::info!("Cmd Held");
                 self.cmd_held = true;
                 None
             }
@@ -148,7 +148,6 @@ impl super::State for Info {
                 None
             }
             Message::CtrlHeld => {
-                defmt::info!("Ctrl Held");
                 self.ctrl_held = true;
                 None
             }

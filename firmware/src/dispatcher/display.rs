@@ -77,6 +77,7 @@ impl OLED {
 
 impl super::State for OLED {
     type Messages = Option<Message>;
+    #[inline]
     fn handle_event(&mut self, message: Message) -> Self::Messages {
         match message {
             Message::LateInit => self.init(),

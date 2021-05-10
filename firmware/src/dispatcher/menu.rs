@@ -91,6 +91,8 @@ impl Menu {
 
 impl State for Menu {
     type Messages = Multi<Message>;
+
+    #[inline]
     fn handle_event(&mut self, message: Message) -> Self::Messages {
         match message {
             Message::Menu(MenuAction::Up) => self.up(),

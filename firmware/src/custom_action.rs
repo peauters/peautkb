@@ -4,6 +4,8 @@ use crate::keyboard::*;
 use keyberon::key_code::KeyCode;
 use keyberon::layout::{CustomEvent, Layout};
 
+use heapless::{consts::U8, spsc::Queue};
+
 pub enum PkbAction {
     MediaKey(MediaKey),
     MenuOpen,
@@ -17,12 +19,12 @@ pub enum PkbAction {
     ReleaseCtrl,
 }
 
-#[derive(Default)]
 pub struct CustomActionState {
     hold_cmd: bool,
     hold_ctrl: bool,
     current_layer: usize,
     is_primary: bool,
+    mk_reports: Queue<MediaKeyHidReport, U8>,
 }
 
 impl CustomActionState {
@@ -32,6 +34,7 @@ impl CustomActionState {
             hold_ctrl: false,
             current_layer: 0,
             is_primary: false,
+            mk_reports: Queue::new(),
         }
     }
 
@@ -39,46 +42,46 @@ impl CustomActionState {
         self.is_primary = true;
     }
 
-    pub fn process(
-        &mut self,
-        event: CustomEvent<PkbAction>,
-    ) -> (Option<MediaKeyHidReport>, impl IntoIterator<Item = Message>) {
+    #[inline]
+    pub fn process(&mut self, event: CustomEvent<PkbAction>) -> impl IntoIterator<Item = Message> {
         match event {
-            CustomEvent::Press(PkbAction::MediaKey(mk)) => (Some(mk.into()), None),
+            CustomEvent::Press(PkbAction::MediaKey(mk)) => {
+                self.mk_reports.enqueue(mk.into()).ok();
+                None
+            }
             CustomEvent::Release(PkbAction::MediaKey(_)) => {
-                (Some(MediaKeyHidReport::default()), None)
+                self.mk_reports.enqueue(MediaKeyHidReport::default()).ok();
+                None
             }
             CustomEvent::Press(PkbAction::HoldCmd) => {
                 self.hold_cmd = true;
-                (None, Some(Message::CmdHeld))
+                Some(Message::CmdHeld)
             }
             CustomEvent::Release(PkbAction::ReleaseCmd) => {
                 self.hold_cmd = false;
-                (None, Some(Message::CmdReleased))
+                Some(Message::CmdReleased)
             }
             CustomEvent::Press(PkbAction::HoldCtrl) => {
                 self.hold_ctrl = true;
-                (None, Some(Message::CtrlHeld))
+                Some(Message::CtrlHeld)
             }
             CustomEvent::Release(PkbAction::ReleaseCtrl) => {
                 self.hold_ctrl = false;
-                (None, Some(Message::CtrlReleased))
+                Some(Message::CtrlReleased)
             }
             CustomEvent::Release(PkbAction::MenuOpen) => {
-                (None, Some(Message::DisplaySelect(DisplayedState::Menu)))
+                Some(Message::DisplaySelect(DisplayedState::Menu))
             }
-            CustomEvent::Release(PkbAction::MenuUp) => (None, Some(Message::Menu(MenuAction::Up))),
-            CustomEvent::Release(PkbAction::MenuDown) => {
-                (None, Some(Message::Menu(MenuAction::Down)))
-            }
-            CustomEvent::Release(PkbAction::MenuSelect) => {
-                (None, Some(Message::Menu(MenuAction::Select)))
-            }
-            CustomEvent::Release(PkbAction::MenuClose) => {
-                (None, Some(Message::Menu(MenuAction::Close)))
-            }
-            _ => (None, None),
+            CustomEvent::Release(PkbAction::MenuUp) => Some(Message::Menu(MenuAction::Up)),
+            CustomEvent::Release(PkbAction::MenuDown) => Some(Message::Menu(MenuAction::Down)),
+            CustomEvent::Release(PkbAction::MenuSelect) => Some(Message::Menu(MenuAction::Select)),
+            CustomEvent::Release(PkbAction::MenuClose) => Some(Message::Menu(MenuAction::Close)),
+            _ => None,
         }
+    }
+
+    pub fn get_mk_report(&mut self) -> Option<MediaKeyHidReport> {
+        self.mk_reports.dequeue()
     }
 
     pub fn check_layout_for_events(
