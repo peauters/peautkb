@@ -1,7 +1,5 @@
 use super::*;
 
-use numtoa::NumToA;
-
 use embedded_graphics::{
     fonts::{Font6x8, Text},
     pixelcolor::BinaryColor,
@@ -12,8 +10,11 @@ use crate::multi::{Multi, Multi::*};
 
 #[rustfmt::skip]
 const MENU : &[&[MenuItem]] = &[
-    &[i("ping", Message::Ping), sm("display", 1)],
-    &[i("info", Message::DisplaySelect(DisplayedState::Info)), i("bongo", Message::DisplaySelect(DisplayedState::Bongo))]
+    &[i("ping", Message::Ping), sm("display", 1), sm("keymap", 4)],
+    &[sm("left", 2), sm("right", 3)],
+    &[i("info", Message::DisplaySelect(DisplayedState::Info))],
+    &[i("info", Message::SecondaryDisplaySelect(DisplayedState::Info)), i("bongo", Message::SecondaryDisplaySelect(DisplayedState::Bongo))],
+    &[i("default", Message::SetDefaultLayer(0)), i("cs", Message::SetDefaultLayer(5))],
     ];
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -102,7 +103,7 @@ impl State for Menu {
         }
     }
 
-    fn write_to_display<DI, DSIZE>(&self, display: &mut GraphicsMode<DI, DSIZE>)
+    fn write_to_display<DI, DSIZE>(&mut self, display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand,
@@ -129,24 +130,6 @@ impl State for Menu {
             .into_styled(font_6x8)
             .draw(display)
             .unwrap();
-
-        let mut buffer: [u8; 20] = [0; 20];
-
-        Text::new(
-            self.current_item.numtoa_str(10, &mut buffer),
-            Point::new(0, 70),
-        )
-        .into_styled(font_6x8)
-        .draw(display)
-        .unwrap();
-
-        Text::new(
-            self.current_menu.numtoa_str(10, &mut buffer),
-            Point::new(0, 83),
-        )
-        .into_styled(font_6x8)
-        .draw(display)
-        .unwrap();
 
         display.flush().unwrap();
     }

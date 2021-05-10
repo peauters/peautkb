@@ -1,8 +1,8 @@
-use crate::dispatcher::{menu::MenuAction, DisplayedState, Message};
+use crate::dispatcher::{menu::MenuAction, DisplayedState, Layer, Message};
 use crate::keyboard::*;
 
 use keyberon::key_code::KeyCode;
-use keyberon::layout::CustomEvent;
+use keyberon::layout::{CustomEvent, Layout};
 
 pub enum PkbAction {
     MediaKey(MediaKey),
@@ -21,6 +21,8 @@ pub enum PkbAction {
 pub struct CustomActionState {
     hold_cmd: bool,
     hold_ctrl: bool,
+    current_layer: usize,
+    is_primary: bool,
 }
 
 impl CustomActionState {
@@ -28,8 +30,15 @@ impl CustomActionState {
         CustomActionState {
             hold_cmd: false,
             hold_ctrl: false,
+            current_layer: 0,
+            is_primary: false,
         }
     }
+
+    pub fn is_primary(&mut self) {
+        self.is_primary = true;
+    }
+
     pub fn process(
         &mut self,
         event: CustomEvent<PkbAction>,
@@ -69,6 +78,23 @@ impl CustomActionState {
                 (None, Some(Message::Menu(MenuAction::Close)))
             }
             _ => (None, None),
+        }
+    }
+
+    pub fn check_layout_for_events(
+        &mut self,
+        layout: &Layout<PkbAction>,
+    ) -> impl IntoIterator<Item = Message> {
+        if self.is_primary {
+            let new_layer = layout.current_layer();
+            if self.current_layer != new_layer {
+                self.current_layer = new_layer;
+                Some(Message::CurrentLayer(Layer::from(new_layer)))
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 

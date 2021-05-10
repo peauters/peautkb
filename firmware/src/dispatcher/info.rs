@@ -7,13 +7,14 @@ use embedded_graphics::{
 };
 use keyberon::layout::Event;
 
-#[derive(Copy, Clone, Default)]
+#[derive(Default)]
 pub struct Info {
     usb_connected: bool,
     hand: Option<Hand>,
     last_matrix: Option<Event>,
     cmd_held: bool,
     ctrl_held: bool,
+    current_layer: Layer,
 }
 
 const fn bool_to_string(b: bool) -> &'static str {
@@ -25,7 +26,7 @@ const fn bool_to_string(b: bool) -> &'static str {
 
 impl super::State for Info {
     type Messages = Option<Message>;
-    fn write_to_display<DI, DSIZE>(&self, display: &mut GraphicsMode<DI, DSIZE>)
+    fn write_to_display<DI, DSIZE>(&mut self, display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand,
@@ -63,7 +64,11 @@ impl super::State for Info {
             .draw(display)
             .unwrap();
 
-        Text::new("last mtx:", Point::new(0, 26))
+        Text::new("layer:", Point::new(0, 23))
+            .into_styled(font_6x8)
+            .draw(display)
+            .unwrap();
+        Text::new(self.current_layer.into(), Point::new(0, 36))
             .into_styled(font_6x8)
             .draw(display)
             .unwrap();
@@ -89,7 +94,7 @@ impl super::State for Info {
                 .unwrap();
         }
 
-        display.flush().unwrap();
+        display.flush().ok();
     }
 
     fn handle_event(&mut self, message: Message) -> Self::Messages {
@@ -124,6 +129,14 @@ impl super::State for Info {
                 } else {
                     None
                 }
+            }
+            Message::CurrentLayer(layer) => {
+                self.current_layer = layer;
+                Some(Message::SecondaryCurrentLayer(layer))
+            }
+            Message::SecondaryCurrentLayer(layer) => {
+                self.current_layer = layer;
+                None
             }
             Message::CmdHeld => {
                 defmt::info!("Cmd Held");

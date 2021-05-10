@@ -48,7 +48,7 @@ impl State for LEDs {
             _ => None,
         }
     }
-    fn write_to_display<DI, DSIZE>(&self, _display: &mut GraphicsMode<DI, DSIZE>)
+    fn write_to_display<DI, DSIZE>(&mut self, _display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand,

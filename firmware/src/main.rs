@@ -132,7 +132,7 @@ mod app {
         let gpioa = perfs.GPIOA.split();
         let gpiob = perfs.GPIOB.split();
 
-        let scan_timer = timer::Timer::tim3(perfs.TIM3, 500.hz(), clocks);
+        let scan_timer = timer::Timer::tim3(perfs.TIM3, 1000.hz(), clocks);
         let tick_timer = timer::Timer::tim4(perfs.TIM4, 24.hz(), clocks);
 
         // I2C for SSD1306 display
@@ -235,12 +235,13 @@ mod app {
         }
     }
 
-    #[task(binds = USART1, priority = 3, resources = [rx, initd, layout])]
+    #[task(binds = USART1, priority = 3, resources = [rx, initd, layout, custom_action_state])]
     fn rx(c: rx::Context) {
         let rx::Resources {
             mut rx,
             mut initd,
             mut layout,
+            mut custom_action_state,
         } = c.resources;
 
         initd.lock(|b| {
@@ -253,12 +254,18 @@ mod app {
                         dispatch_event::spawn(message).ok();
                         match message {
                             Message::SecondaryKeyPress(i, j) => {
-                                layout.lock(|l| l.event(Event::Press(i, j)));
-                                send_hid_report::spawn().ok();
+                                layout.lock(|l| {
+                                    l.event(Event::Press(i, j));
+                                    custom_action_state.lock(|c| c.process(l.tick()));
+                                });
+                                send_hid_report::spawn(None).ok();
                             }
                             Message::SecondaryKeyRelease(i, j) => {
-                                layout.lock(|l| l.event(Event::Release(i, j)));
-                                send_hid_report::spawn().ok();
+                                layout.lock(|l| {
+                                    l.event(Event::Release(i, j));
+                                    custom_action_state.lock(|c| c.process(l.tick()));
+                                });
+                                send_hid_report::spawn(None).ok();
                             }
                             _ => (),
                         }
@@ -290,7 +297,7 @@ mod app {
         });
     }
 
-    #[task(binds = OTG_FS_WKUP, priority = 2, resources = [usb_dev, usb_mediakeys_class])]
+    #[task(binds = OTG_FS_WKUP, priority = 4, resources = [usb_dev, usb_mediakeys_class])]
     fn usb_wkup(c: usb_wkup::Context) {
         let usb_wkup::Resources {
             mut usb_dev,
@@ -306,8 +313,8 @@ mod app {
     }
 
     #[task(binds = TIM3,
-            priority = 3,
-            resources = [scan_timer, debouncer, matrix, layout, rotary])]
+            priority = 1,
+            resources = [scan_timer, debouncer, matrix, layout, rotary, custom_action_state])]
     fn scan(c: scan::Context) {
         let scan::Resources {
             mut scan_timer,
@@ -315,6 +322,7 @@ mod app {
             mut matrix,
             mut layout,
             mut rotary,
+            mut custom_action_state,
         } = c.resources;
         scan_timer.lock(|t| t.wait().ok());
 
@@ -336,12 +344,23 @@ mod app {
                             }
                         }
                     }
+                    let (maybe_mk_report, messages) =
+                        custom_action_state.lock(|c| c.process(l.tick()));
+                    for m in messages.into_iter() {
+                        dispatch_event::spawn(m).ok();
+                    }
+
+                    if dirty {
+                        send_hid_report::spawn(maybe_mk_report).ok();
+                    }
                 })
+            });
+            custom_action_state.lock(|c| {
+                for message in c.check_layout_for_events(l) {
+                    dispatch_event::spawn(message).ok();
+                }
             })
         });
-        if dirty {
-            send_hid_report::spawn().ok();
-        }
     }
 
     #[task(binds = TIM4,
@@ -351,11 +370,12 @@ mod app {
         let tick::Resources { mut tick_timer } = c.resources;
         tick_timer.lock(|t| t.wait().ok());
 
-        dispatch_event::spawn(Message::Tick).ok();
+        dispatch_event::spawn(Message::UpdateDisplay).ok();
     }
 
-    #[task(resources = [layout, usb_dev, usb_mediakeys_class, custom_action_state], capacity = 64)]
-    fn send_hid_report(c: send_hid_report::Context) {
+    #[task(priority = 2,
+        resources = [layout, usb_dev, usb_mediakeys_class, custom_action_state], capacity = 64)]
+    fn send_hid_report(c: send_hid_report::Context, maybe_mk_report: Option<MediaKeyHidReport>) {
         let send_hid_report::Resources {
             mut layout,
             mut usb_dev,
@@ -363,12 +383,6 @@ mod app {
             mut custom_action_state,
         } = c.resources;
 
-        let (maybe_mk_report, messages) =
-            custom_action_state.lock(|c| c.process(layout.lock(|l| l.tick())));
-
-        for m in messages.into_iter() {
-            dispatch_event::spawn(m).ok();
-        }
         if let Some(mut mk_report) = maybe_mk_report {
             if usb_mediakeys_class.lock(|k| k.device_mut().set_report(mk_report.clone()))
                 && usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured
@@ -379,13 +393,11 @@ mod app {
 
         let mut report: KbHidReport = layout.lock(|l| l.keycodes().collect());
         custom_action_state.lock(|c| c.modify_kb_report(&mut report));
-        if !usb_mediakeys_class.lock(|k| k.device_mut().set_kb_report(report.clone())) {
-            return;
+        if usb_mediakeys_class.lock(|k| k.device_mut().set_kb_report(report.clone()))
+            && usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured
+        {
+            while let Ok(0) = usb_mediakeys_class.lock(|k| k.write(report.as_bytes())) {}
         }
-        if usb_dev.lock(|d| d.state()) != UsbDeviceState::Configured {
-            return;
-        }
-        while let Ok(0) = usb_mediakeys_class.lock(|k| k.write(report.as_bytes())) {}
     }
 
     #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer, layout], capacity = 30)]
@@ -400,27 +412,31 @@ mod app {
         } = c.resources;
 
         dispatcher.lock(|d| {
-            d.dispatch(message)
-                .map(Message::to_type)
-                .for_each(|t| match t {
-                    MessageType::Local(m) => {
-                        dispatch_event::spawn(m).ok();
-                        match m {
-                            Message::InitTimers => timer_init.lock(|t| {
-                                if !*t {
-                                    scan_timer.lock(|t| t.listen(timer::Event::TimeOut));
-                                    tick_timer.lock(|t| t.listen(timer::Event::TimeOut));
-                                    *t = true;
+            if message == Message::UpdateDisplay {
+                d.update_display()
+            } else {
+                d.dispatch(message)
+                    .map(Message::to_type)
+                    .for_each(|t| match t {
+                        MessageType::Local(m) => {
+                            dispatch_event::spawn(m).ok();
+                            match m {
+                                Message::InitTimers => timer_init.lock(|t| {
+                                    if !*t {
+                                        scan_timer.lock(|t| t.listen(timer::Event::TimeOut));
+                                        tick_timer.lock(|t| t.listen(timer::Event::TimeOut));
+                                        *t = true;
+                                    }
+                                }),
+                                Message::SetDefaultLayer(i) => {
+                                    layout.lock(|l| l.set_default_layer(i));
                                 }
-                            }),
-                            Message::SetDefaultLayer(i) => {
-                                layout.lock(|l| l.set_default_layer(i));
+                                _ => (),
                             }
-                            _ => (),
                         }
-                    }
-                    MessageType::Remote(m) => tx.lock(|t| t.send_event(m)),
-                })
+                        MessageType::Remote(m) => tx.lock(|t| t.send_event(m)),
+                    })
+            }
         });
     }
 
@@ -435,15 +451,19 @@ mod app {
         });
     }
 
-    #[task(resources = [usb_dev])]
+    #[task(resources = [usb_dev, custom_action_state])]
     fn late_init(c: late_init::Context) {
-        let late_init::Resources { mut usb_dev } = c.resources;
+        let late_init::Resources {
+            mut usb_dev,
+            mut custom_action_state,
+        } = c.resources;
         defmt::info!("late init");
         dispatch_event::spawn(Message::LateInit).ok();
 
         if usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured {
             dispatch_event::spawn(Message::YouArePrimary).ok();
             dispatch_event::spawn(Message::UsbConnected(true)).ok();
+            custom_action_state.lock(|c| c.is_primary());
         } else {
             dispatch_event::spawn(Message::YouAreSecondary).ok();
         }

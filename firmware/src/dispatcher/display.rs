@@ -40,7 +40,7 @@ impl OLED {
         }
     }
 
-    pub fn display<S: super::State>(&mut self, state: &S) {
+    pub fn display<S: super::State>(&mut self, state: &mut S) {
         if self.initd {
             state.write_to_display(&mut self.display);
         }
@@ -92,7 +92,7 @@ impl super::State for OLED {
         }
     }
 
-    fn write_to_display<DI, DSIZE>(&self, _display: &mut GraphicsMode<DI, DSIZE>)
+    fn write_to_display<DI, DSIZE>(&mut self, _display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand,

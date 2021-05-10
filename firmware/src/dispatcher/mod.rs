@@ -49,23 +49,24 @@ impl Dispatcher {
 
     pub fn dispatch(&mut self, message: Message) -> impl Iterator<Item = Message> {
         let messages = None.into_iter();
+
         dispatch!(messages, message, self.oled, self.info, self.leds, self.menu, self.bongo);
 
         match message {
-            Message::Tick => self.update_display(),
             Message::DisplaySelect(d) => self.displayed_state = d,
+            Message::SecondaryDisplaySelect(d) => self.displayed_state = d,
             _ => (),
         }
         messages
     }
 
-    fn update_display(&mut self) {
+    pub fn update_display(&mut self) {
         display!(
             self.displayed_state,
             self.oled,
-            (DisplayedState::Info, &self.info),
-            (DisplayedState::Menu, &self.menu),
-            (DisplayedState::Bongo, &self.bongo)
+            (DisplayedState::Info, &mut self.info),
+            (DisplayedState::Menu, &mut self.menu),
+            (DisplayedState::Bongo, &mut self.bongo)
         );
     }
 }
@@ -89,10 +90,13 @@ pub enum Message {
     CmdReleased,
     CtrlHeld,
     CtrlReleased,
-    CurrentLayer(u8),
+    CurrentLayer(Layer),
+    SecondaryCurrentLayer(Layer),
     DisplaySelect(DisplayedState),
+    SecondaryDisplaySelect(DisplayedState),
     Menu(menu::MenuAction),
     SetDefaultLayer(usize),
+    Bongo,
 }
 
 pub enum MessageType {
@@ -106,6 +110,9 @@ impl Message {
             Message::YouAreSecondary
             | Message::SecondaryKeyPress(_, _)
             | Message::SecondaryKeyRelease(_, _)
+            | Message::SecondaryDisplaySelect(_)
+            | Message::SecondaryCurrentLayer(_)
+            | Message::Bongo
             | Message::Pong => MessageType::Remote(self),
             _ => MessageType::Local(self),
         }
@@ -128,8 +135,53 @@ impl Default for DisplayedState {
 pub trait State {
     type Messages: IntoIterator<Item = Message>;
     fn handle_event(&mut self, message: Message) -> Self::Messages;
-    fn write_to_display<DI, DSIZE>(&self, display: &mut GraphicsMode<DI, DSIZE>)
+    fn write_to_display<DI, DSIZE>(&mut self, display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand;
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Layer {
+    Default,
+    Numbers,
+    Navigation,
+    Tabbing,
+    Menu,
+    CS,
+    Missing,
+}
+
+impl Default for Layer {
+    fn default() -> Self {
+        Layer::Default
+    }
+}
+
+impl From<usize> for Layer {
+    fn from(i: usize) -> Layer {
+        match i {
+            0 => Layer::Default,
+            1 => Layer::Numbers,
+            2 => Layer::Navigation,
+            3 => Layer::Tabbing,
+            4 => Layer::Menu,
+            5 => Layer::CS,
+            _ => Layer::Missing,
+        }
+    }
+}
+
+impl From<Layer> for &str {
+    fn from(layer: Layer) -> &'static str {
+        match layer {
+            Layer::Default => "default",
+            Layer::Numbers => "numbers",
+            Layer::Navigation => "nav",
+            Layer::Tabbing => "tabbing",
+            Layer::Menu => "menu",
+            Layer::CS => "CS",
+            Layer::Missing => "missing",
+        }
+    }
 }
