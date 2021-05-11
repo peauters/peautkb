@@ -1,15 +1,16 @@
 use crate::hal::gpio::{gpiob, Input, PullUp};
+use crate::multi::Multi;
 use embedded_hal::digital::v2::InputPin;
 use keyberon::layout::Event;
+use stm32f4xx_hal::gpio::ExtiPin;
 
 pub struct Rotary {
     pb4: gpiob::PB4<Input<PullUp>>,
     pb5: gpiob::PB5<Input<PullUp>>,
     last: (bool, bool),
-    last_direction: Option<Direction>,
-    last_event: Option<Event>,
     cw_coord: (u8, u8),
     acw_coord: (u8, u8),
+    release: Multi<Event>,
 }
 
 impl Rotary {
@@ -23,65 +24,65 @@ impl Rotary {
             pb4,
             pb5,
             last: (false, false),
-            last_direction: None,
-            last_event: None,
             cw_coord,
             acw_coord,
+            release: Multi::None,
         }
     }
 
-    pub fn poll<'a>(&'a mut self) -> impl Iterator<Item = Event> + 'a {
-        let release = match self.last_event {
-            Some(Event::Press(i, j)) => {
-                self.last_event = None;
-                Some(Event::Release(i, j))
-            }
-            _ => None,
-        };
-        let press = match self.read_and_debounce() {
-            Some(Direction::CW) => Some(self.update_last_event(self.cw_coord)),
-            Some(Direction::ACW) => Some(self.update_last_event(self.acw_coord)),
-            None => None,
-        };
-        release.into_iter().chain(press.into_iter())
+    pub fn poll<'a>(&'a mut self) -> impl IntoIterator<Item = Event> + 'a {
+        match self.read_and_debounce() {
+            Some(d) => self.event_for(d),
+            None => Multi::None,
+        }
     }
 
-    fn update_last_event(&mut self, coord: (u8, u8)) -> Event {
-        let event = Event::Press(coord.0, coord.1);
-        self.last_event = Some(event.clone());
-        event
+    pub fn event_for(&mut self, d: Direction) -> Multi<Event> {
+        match d {
+            Direction::CW => {
+                self.release
+                    .append(Event::Release(self.cw_coord.0, self.cw_coord.1));
+                Multi::One(Event::Press(self.cw_coord.0, self.cw_coord.1))
+            }
+            Direction::ACW => {
+                self.release
+                    .append(Event::Release(self.acw_coord.0, self.acw_coord.1));
+                Multi::One(Event::Press(self.acw_coord.0, self.acw_coord.1))
+            }
+        }
+    }
+
+    pub fn release<'a>(&'a mut self) -> impl IntoIterator<Item = Event> + 'a {
+        let out = self.release;
+        self.release = Multi::None;
+        out
+    }
+
+    pub fn clear_interrupt(&mut self) {
+        self.pb5.clear_interrupt_pending_bit();
     }
 
     fn read_and_debounce(&mut self) -> Option<Direction> {
         let next = (self.pb4.is_high().unwrap(), self.pb5.is_high().unwrap());
         match (self.last, next) {
-            ((false, false), (false, true))
-            | ((false, true), (true, true))
-            | ((true, false), (false, false))
-            | ((true, true), (true, false)) => {
+            ((true, false), (false, true))
+            | ((false, true), (true, false))
+            | ((true, true), (true, false))
+            | ((false, false), (false, true)) => {
                 self.last = next;
-                if self.last_direction == Some(Direction::ACW) {
-                    self.last_direction = None;
-                    Some(Direction::ACW)
-                } else {
-                    self.last_direction = Some(Direction::ACW);
-                    None
-                }
+                Some(Direction::ACW)
             }
-            ((false, false), (true, false))
+            ((false, false), (true, true))
+            | ((true, true), (false, false))
             | ((false, true), (false, false))
-            | ((true, false), (true, true))
-            | ((true, true), (false, true)) => {
+            | ((true, false), (true, true)) => {
                 self.last = next;
-                if self.last_direction == Some(Direction::CW) {
-                    self.last_direction = None;
-                    Some(Direction::CW)
-                } else {
-                    self.last_direction = Some(Direction::CW);
-                    None
-                }
+                Some(Direction::CW)
             }
-            _ => None,
+            _ => {
+                self.last = next;
+                None
+            }
         }
     }
 }

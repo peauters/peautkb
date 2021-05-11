@@ -73,7 +73,7 @@ mod app {
     }
 
     #[task(resources = [leds])]
-    fn tick(mut c: tick::Context) -> Result<(), Err> {
+    fn tick(mut c: tick::Context) {
         defmt::info!("Tick");
         tick::spawn_after(Milliseconds::new(1000_u32)).ok();
 
@@ -85,7 +85,7 @@ mod app {
         defmt::info!("writing to leds");
         c.resources
             .leds
-            .lock(|l| l.write(all_blue.iter().cloned())?);
+            .lock(|l| l.write(all_blue.iter().cloned()).unwrap());
         defmt::info!("done");
     }
 }

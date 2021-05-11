@@ -30,7 +30,7 @@ mod app {
     use core::convert::Infallible;
 
     use crate::hal::{
-        gpio::{gpioa, gpiob, Input, Output, PullUp, PushPull},
+        gpio::{gpioa, gpiob, Edge, Input, Output, PullUp, PushPull},
         otg_fs,
         prelude::*,
         stm32, timer,
@@ -117,9 +117,10 @@ mod app {
     #[init]
     fn init(mut c: init::Context) -> (init::LateResources, init::Monotonics) {
         static mut USB_BUS: Option<UsbBusAllocator<otg_fs::UsbBusType>> = None;
-        let perfs: stm32::Peripherals = c.device;
+        let mut perfs: stm32::Peripherals = c.device;
 
         let rcc = perfs.RCC.constrain();
+        let mut syscfg = perfs.SYSCFG.constrain();
         let clocks = rcc
             .cfgr
             .sysclk(48.mhz())
@@ -132,7 +133,7 @@ mod app {
         let gpioa = perfs.GPIOA.split();
         let gpiob = perfs.GPIOB.split();
 
-        let scan_timer = timer::Timer::tim3(perfs.TIM3, 1000.hz(), clocks);
+        let scan_timer = timer::Timer::tim3(perfs.TIM3, 1200.hz(), clocks);
         let tick_timer = timer::Timer::tim4(perfs.TIM4, 24.hz(), clocks);
 
         // I2C for SSD1306 display
@@ -150,7 +151,11 @@ mod app {
 
         // Rotary encoder pins
         let pb4 = gpiob.pb4.into_pull_up_input();
-        let pb5 = gpiob.pb5.into_pull_up_input();
+        let mut pb5 = gpiob.pb5.into_pull_up_input();
+
+        pb5.make_interrupt_source(&mut syscfg);
+        pb5.enable_interrupt(&mut perfs.EXTI);
+        pb5.trigger_on_edge(&mut perfs.EXTI, Edge::RISING_FALLING);
 
         let rotary = Rotary::new(pb4, pb5, (3, 0), (3, 1));
 
@@ -235,12 +240,13 @@ mod app {
         }
     }
 
-    #[task(binds = USART1, priority = 3, resources = [rx, initd, layout])]
+    #[task(binds = USART1, priority = 3, resources = [rx, initd, layout, custom_action_state])]
     fn rx(c: rx::Context) {
         let rx::Resources {
             mut rx,
             mut initd,
             mut layout,
+            mut custom_action_state,
         } = c.resources;
 
         initd.lock(|b| {
@@ -255,14 +261,24 @@ mod app {
                             Message::SecondaryKeyPress(i, j) => {
                                 layout.lock(|l| {
                                     l.event(Event::Press(i, j));
-                                    // l.tick();
+                                    custom_action_state.lock(|c| {
+                                        let messages = c.process(l.tick());
+                                        for m in messages.into_iter() {
+                                            dispatch_event::spawn(m).ok();
+                                        }
+                                    });
                                 });
                                 send_hid_report::spawn().ok();
                             }
                             Message::SecondaryKeyRelease(i, j) => {
                                 layout.lock(|l| {
                                     l.event(Event::Release(i, j));
-                                    // l.tick();
+                                    custom_action_state.lock(|c| {
+                                        let messages = c.process(l.tick());
+                                        for m in messages.into_iter() {
+                                            dispatch_event::spawn(m).ok();
+                                        }
+                                    });
                                 });
                                 send_hid_report::spawn().ok();
                             }
@@ -311,15 +327,53 @@ mod app {
         });
     }
 
+    #[task(binds = EXTI9_5, priority = 2, resources = [rotary, layout, custom_action_state])]
+    fn rot5(c: rot5::Context) {
+        let rot5::Resources {
+            mut rotary,
+            mut layout,
+            mut custom_action_state,
+        } = c.resources;
+        let mut dirty = false;
+        layout.lock(|l| {
+            rotary.lock(|r| {
+                r.clear_interrupt();
+                for event in r.poll() {
+                    dirty = true;
+                    l.event(event);
+                    match event {
+                        Event::Press(i, j) => {
+                            dispatch_event::spawn(Message::MatrixKeyPress(i, j)).ok();
+                        }
+                        Event::Release(i, j) => {
+                            dispatch_event::spawn(Message::MatrixKeyRelease(i, j)).ok();
+                        }
+                    }
+                    custom_action_state.lock(|c| {
+                        let messages = c.process(l.tick());
+                        for m in messages.into_iter() {
+                            dispatch_event::spawn(m).ok();
+                        }
+                    });
+                }
+            });
+        });
+
+        if dirty {
+            send_hid_report::spawn().ok();
+        }
+    }
+
     #[task(binds = TIM3,
             priority = 3,
-            resources = [scan_timer, debouncer, matrix, layout, rotary])]
+            resources = [scan_timer, debouncer, matrix, layout, custom_action_state, rotary])]
     fn scan(c: scan::Context) {
         let scan::Resources {
             mut scan_timer,
             mut debouncer,
             mut matrix,
             mut layout,
+            mut custom_action_state,
             mut rotary,
         } = c.resources;
         scan_timer.lock(|t| t.wait().ok());
@@ -330,7 +384,7 @@ mod app {
         layout.lock(|l| {
             debouncer.lock(|d| {
                 rotary.lock(|r| {
-                    for event in d.events(pressed_keys).chain(r.poll()) {
+                    for event in d.events(pressed_keys).chain(r.release()) {
                         dirty = true;
                         l.event(event);
                         match event {
@@ -341,10 +395,23 @@ mod app {
                                 dispatch_event::spawn(Message::MatrixKeyRelease(i, j)).ok();
                             }
                         }
+                        custom_action_state.lock(|c| {
+                            let messages = c.process(l.tick());
+
+                            for m in messages.into_iter() {
+                                dispatch_event::spawn(m).ok();
+                            }
+                        });
                     }
+                    custom_action_state.lock(|c| {
+                        for m in c.check_layout_for_events(l) {
+                            dispatch_event::spawn(m).ok();
+                        }
+                    });
                 })
-            })
+            });
         });
+
         if dirty {
             send_hid_report::spawn().ok();
         }
@@ -360,7 +427,7 @@ mod app {
         dispatch_event::spawn(Message::UpdateDisplay).ok();
     }
 
-    #[task(resources = [layout, usb_dev, usb_mediakeys_class, custom_action_state], capacity = 64)]
+    #[task(resources = [layout, usb_dev, usb_mediakeys_class, custom_action_state], priority = 2, capacity = 64)]
     fn send_hid_report(c: send_hid_report::Context) {
         let send_hid_report::Resources {
             mut layout,
@@ -369,19 +436,6 @@ mod app {
             mut custom_action_state,
         } = c.resources;
 
-        custom_action_state.lock(|c| {
-            layout.lock(|l| {
-                let messages = c.process(l.tick());
-
-                for m in messages.into_iter() {
-                    dispatch_event::spawn(m).ok();
-                }
-
-                for m in c.check_layout_for_events(l) {
-                    dispatch_event::spawn(m).ok();
-                }
-            })
-        });
         while let Some(mut mk_report) = custom_action_state.lock(|c| c.get_mk_report()) {
             if usb_mediakeys_class.lock(|k| k.device_mut().set_report(mk_report.clone()))
                 && usb_dev.lock(|d| d.state()) == UsbDeviceState::Configured

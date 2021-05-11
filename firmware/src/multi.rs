@@ -34,6 +34,15 @@ impl<T> Multi<T> {
         }
     }
 
+    pub fn append(&mut self, x: T) {
+        match core::mem::take(self) {
+            Multi::None => *self = Multi::One(x),
+            Multi::One(t) => *self = Multi::Two(t, x),
+            Multi::Two(t, r) => *self = Multi::Three(t, r, x),
+            _ => *self = Multi::None,
+        }
+    }
+
     pub fn add(self, other: Multi<T>) -> Multi<T> {
         match (self, other) {
             (Multi::None, other) => other,
