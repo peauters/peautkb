@@ -65,11 +65,11 @@ impl super::State for Info {
             .draw(display)
             .unwrap();
 
-        Text::new("layer:", Point::new(0, 23))
+        Text::new("layer:", Point::new(0, 26))
             .into_styled(font_6x8)
             .draw(display)
             .unwrap();
-        Text::new(self.current_layer.into(), Point::new(0, 36))
+        Text::new(self.current_layer.into(), Point::new(0, 39))
             .into_styled(font_6x8)
             .draw(display)
             .unwrap();
