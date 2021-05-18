@@ -56,8 +56,8 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
     // CS 
     &[
         &[k(Tab),     k(F),         k(Kb3),   k(W),       k(E),       k(R),      k(Escape),          NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
-        &[Trans,      k(RShift),    k(A),     k(S),       k(D),       k(G),      MENU_OPEN,          NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
-        &[Trans,      k(RCtrl),     k(X),     k(T),       k(Kb5),     k(B),      k(Mute),            NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      k(LShift),    k(A),     k(S),       k(D),       k(G),      MENU_OPEN,          NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      k(LCtrl),     k(X),     k(T),       k(Kb5),     k(B),      k(Mute),            NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,       NoOp],
         &[k(VolUp),   k(VolDown),   k(Kb1),   k(Kb2),     k(Space),   k(Kb6),    k(Kb7),             Trans,      Trans,    Trans,       Trans,       Trans,     NoOp,       NoOp],
     ], 
 ];
