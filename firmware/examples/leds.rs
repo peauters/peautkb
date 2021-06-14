@@ -13,17 +13,15 @@ mod app {
 
     use dwt_systick_monotonic::DwtSystick;
 
-    use crate::hal::{dma, prelude::*, pwm, stm32};
+    use crate::hal::{prelude::*, stm32};
     use rtic::time::duration::Milliseconds;
 
     #[monotonic(binds = SysTick, default = true)]
     type Mono = DwtSystick<48_000_000>; // 48 MHz
 
     use crate::hal::{
-        gpio::{gpiob::PB15, Alternate, AF5},
-        prelude::*,
-        rcc::Clocks,
-        spi::{NoMiso, NoSck, Spi},
+        gpio::{gpiob::PB13, gpiob::PB15, Alternate, AF5},
+        spi::{NoMiso, Spi},
         stm32::SPI2,
     };
     use smart_leds::{SmartLedsWrite, RGB8};
@@ -31,7 +29,8 @@ mod app {
 
     #[resources]
     struct Resources {
-        leds: Ws2812<Spi<SPI2, (NoSck, NoMiso, PB15<Alternate<AF5>>)>>,
+        leds: Ws2812<Spi<SPI2, (PB13<Alternate<AF5>>, NoMiso, PB15<Alternate<AF5>>)>>,
+        i: u8,
     }
 
     #[init]
@@ -39,20 +38,16 @@ mod app {
         let perfs: stm32::Peripherals = c.device;
 
         let rcc = perfs.RCC.constrain();
-        let clocks = rcc
-            .cfgr
-            .sysclk(48.mhz())
-            .pclk1(24.mhz())
-            .use_hse(25.mhz())
-            .freeze();
+        let clocks = rcc.cfgr.sysclk(48.mhz()).pclk1(48.mhz()).freeze();
 
         let mono = DwtSystick::new(&mut c.core.DCB, c.core.DWT, c.core.SYST, clocks.hclk().0);
         let gpiob = perfs.GPIOB.split();
-        let pb15 = gpiob.pb15.into_alternate_af5();
+        let pb15 = gpiob.pb15.into_alternate_af5().internal_pull_up(true);
+        let pb13 = gpiob.pb13.into_alternate_af5();
 
         let spi = Spi::spi2(
             perfs.SPI2,
-            (NoSck, NoMiso, pb15),
+            (pb13, NoMiso, pb15),
             ws2812_spi::MODE,
             3_000_000.hz(),
             clocks,
@@ -62,7 +57,7 @@ mod app {
 
         tick::spawn_after(Milliseconds::new(1000_u32)).ok();
 
-        (init::LateResources { leds }, init::Monotonics(mono))
+        (init::LateResources { leds, i: 0 }, init::Monotonics(mono))
     }
 
     #[idle]
@@ -72,20 +67,33 @@ mod app {
         }
     }
 
-    #[task(resources = [leds])]
+    #[task(resources = [leds, i])]
     fn tick(mut c: tick::Context) {
-        defmt::info!("Tick");
-        tick::spawn_after(Milliseconds::new(1000_u32)).ok();
+        tick::spawn_after(Milliseconds::new(10_u32)).ok();
 
-        fn initial() -> RGB8 {
-            RGB8 { r: 255, g: 0, b: 0 }
+        fn wheel(mut wheel_pos: u8) -> RGB8 {
+            wheel_pos = 255 - wheel_pos;
+            if wheel_pos < 85 {
+                return (255 - wheel_pos * 3, 0, wheel_pos * 3).into();
+            }
+            if wheel_pos < 170 {
+                wheel_pos -= 85;
+                return (0, wheel_pos * 3, 255 - wheel_pos * 3).into();
+            }
+            wheel_pos -= 170;
+            (wheel_pos * 3, 255 - wheel_pos * 3, 0).into()
         }
 
-        let all_blue: [RGB8; 31] = [initial(); 31];
-        defmt::info!("writing to leds");
+        let j = c.resources.i.lock(|i| *i);
+
+        let all_off: [RGB8; 31] = [wheel(j); 31];
+
         c.resources
             .leds
-            .lock(|l| l.write(all_blue.iter().cloned()).unwrap());
-        defmt::info!("done");
+            .lock(|l| l.write(all_off.iter().cloned()).unwrap());
+
+        c.resources
+            .i
+            .lock(|i| if *i < 255 { *i += 1 } else { *i = 0 })
     }
 }

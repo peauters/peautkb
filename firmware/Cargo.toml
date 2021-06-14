@@ -4,9 +4,6 @@ name = "peautkb"
 edition = "2018"
 version = "0.1.0"
 
-[workspace]
-members = ["testsuite"]
-
 [dependencies]
 cortex-m = "0.7.1"
 cortex-m-rt = "0.6.13"
@@ -29,18 +26,20 @@ postcard = "0.6.1"
 heapless = "0.6.1"
 generic-array = "0.14"
 numtoa = "0.2.3"
+embedded-dma = "0.1.2"
 
 
 [dependencies.stm32f4xx-hal]
+# path = "../../../rust/stm32f4xx-hal"
 version = "0.9.0"
 features = ["stm32f411", "rt", "usb_fs"]
 
+[dev-dependencies]
+panic-halt = "0.2.0"
+
 [features]
 # set logging levels here
-default = [
-  "defmt-default",
-  # "dependency-a/defmt-trace",
-]
+default = ["defmt-default"] # "dependency-a/defmt-trace",
 
 
 # do NOT modify these features
@@ -53,23 +52,23 @@ defmt-error = []
 
 # cargo build/run
 [profile.dev]
-codegen-units = 1
-debug = 2
-debug-assertions = true # <-
-incremental = false
-lto = true
-opt-level = 'z' # <-
-overflow-checks = true # <-
+# codegen-units = 1
+# debug = 2
+# debug-assertions = true # <-
+# incremental = false
+# # lto = true
+# # opt-level = 'z' # <-
+overflow-checks = false # <-
 
 # cargo build/run --release
 [profile.release]
-codegen-units = 1
-debug = 0
-debug-assertions = false # <-
-incremental = false
-lto = true
-opt-level = 'z' # <-
-overflow-checks = false # <-
+# codegen-units = 1
+debug = 2
+# debug-assertions = false # <-
+# incremental = false
+# lto = true
+# opt-level = 'z' # <-
+overflow-checks = true # <-
 
 [[example]]
 name = "dma"

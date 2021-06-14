@@ -12,8 +12,16 @@ use stm32f4xx_hal as hal;
 mod app {
 
     use dwt_systick_monotonic::DwtSystick;
+    use embedded_dma::ReadBuffer;
+    use stm32f4xx_hal::dma::Channel0;
 
-    use crate::hal::{dma, prelude::*, pwm, stm32};
+    use crate::hal::{
+        dma, pac,
+        prelude::*,
+        pwm,
+        spi::{NoMiso, Spi},
+        stm32,
+    };
     use rtic::time::duration::Milliseconds;
 
     #[monotonic(binds = SysTick, default = true)]
@@ -37,17 +45,47 @@ mod app {
         let mono = DwtSystick::new(&mut c.core.DCB, c.core.DWT, c.core.SYST, clocks.hclk().0);
 
         let steams = dma::StreamsTuple::new(perfs.DMA1);
-        let stream = steams.3;
+        let stream = steams.4;
 
-        static mut BUFFER: [u8; 128] = [0; 128];
+        let gpiob = perfs.GPIOB.split();
+        let pb15 = gpiob.pb15.into_alternate_af5().internal_pull_up(true);
+        let pb13 = gpiob.pb13.into_alternate_af5();
 
-        let trans = dma::Transfer::init(
-            stream,
-            perfs.TIM2.ccr2,
-            BUFFER,
-            None,
-            dma::config::DmaConfig::default(),
+        let spi2 = Spi::spi2(
+            perfs.SPI2,
+            (pb13, NoMiso, pb15),
+            ws2812_spi::MODE,
+            3_000_000.hz(),
+            clocks,
         );
+
+        const ARRAY_SIZE: usize = 100;
+
+        let buffer = cortex_m::singleton!(: [u8; ARRAY_SIZE] = [1; ARRAY_SIZE]).unwrap();
+
+        for i in (0..ARRAY_SIZE) {
+            buffer[i] = i as u8;
+        }
+
+        defmt::info!("buffer is {}", buffer);
+
+        let (db_ptr, db_len) = unsafe { buffer.read_buffer() };
+
+        defmt::info!("buffer is {}", db_len);
+
+        let tx = spi2.use_dma().tx();
+
+        let mut trans = dma::Transfer::init_memory_to_peripheral(
+            stream,
+            tx,
+            buffer,
+            None,
+            dma::config::DmaConfig::default().fifo_enable(true),
+        );
+
+        trans.start(|tx| {
+            defmt::info!("Transfer Starting");
+        });
 
         tick::spawn_after(Milliseconds::new(1000_u32)).ok();
 
@@ -62,8 +100,8 @@ mod app {
     }
 
     #[task()]
-    fn tick(c: tick::Context) {
-        defmt::info!("Tick");
+    fn tick(_c: tick::Context) {
+        // defmt::info!("Tick");
         tick::spawn_after(Milliseconds::new(1000_u32)).ok();
     }
 }

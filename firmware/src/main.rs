@@ -133,7 +133,7 @@ mod app {
         let gpioa = perfs.GPIOA.split();
         let gpiob = perfs.GPIOB.split();
 
-        let scan_timer = timer::Timer::tim3(perfs.TIM3, 1200.hz(), clocks);
+        let scan_timer = timer::Timer::tim3(perfs.TIM3, 1000.hz(), clocks);
         let tick_timer = timer::Timer::tim4(perfs.TIM4, 24.hz(), clocks);
 
         // I2C for SSD1306 display
@@ -395,14 +395,14 @@ mod app {
                                 dispatch_event::spawn(Message::MatrixKeyRelease(i, j)).ok();
                             }
                         }
-                        custom_action_state.lock(|c| {
-                            let messages = c.process(l.tick());
-
-                            for m in messages.into_iter() {
-                                dispatch_event::spawn(m).ok();
-                            }
-                        });
                     }
+                    custom_action_state.lock(|c| {
+                        let messages = c.process(l.tick());
+
+                        for m in messages.into_iter() {
+                            dispatch_event::spawn(m).ok();
+                        }
+                    });
                     custom_action_state.lock(|c| {
                         for m in c.check_layout_for_events(l) {
                             dispatch_event::spawn(m).ok();
@@ -412,9 +412,7 @@ mod app {
             });
         });
 
-        if dirty {
-            send_hid_report::spawn().ok();
-        }
+        send_hid_report::spawn().ok();
     }
 
     #[task(binds = TIM4,
@@ -452,7 +450,7 @@ mod app {
         }
     }
 
-    #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer, layout], capacity = 30)]
+    #[task(resources = [dispatcher, tx, timer_init, scan_timer, tick_timer, layout], priority = 1, capacity = 30)]
     fn dispatch_event(c: dispatch_event::Context, message: Message) {
         let dispatch_event::Resources {
             mut dispatcher,
@@ -466,29 +464,28 @@ mod app {
         dispatcher.lock(|d| {
             if message == Message::UpdateDisplay {
                 d.update_display();
-            } else {
-                d.dispatch(message)
-                    .map(Message::to_type)
-                    .for_each(|t| match t {
-                        MessageType::Local(m) => {
-                            dispatch_event::spawn(m).ok();
-                            match m {
-                                Message::InitTimers => timer_init.lock(|t| {
-                                    if !*t {
-                                        scan_timer.lock(|t| t.listen(timer::Event::TimeOut));
-                                        tick_timer.lock(|t| t.listen(timer::Event::TimeOut));
-                                        *t = true;
-                                    }
-                                }),
-                                Message::SetDefaultLayer(i) => {
-                                    layout.lock(|l| l.set_default_layer(i));
-                                }
-                                _ => (),
-                            }
-                        }
-                        MessageType::Remote(m) => tx.lock(|t| t.send_event(m)),
-                    })
             }
+            d.dispatch(message)
+                .map(Message::to_type)
+                .for_each(|t| match t {
+                    MessageType::Local(m) => {
+                        dispatch_event::spawn(m).ok();
+                        match m {
+                            Message::InitTimers => timer_init.lock(|t| {
+                                if !*t {
+                                    scan_timer.lock(|t| t.listen(timer::Event::TimeOut));
+                                    tick_timer.lock(|t| t.listen(timer::Event::TimeOut));
+                                    *t = true;
+                                }
+                            }),
+                            Message::SetDefaultLayer(i) => {
+                                layout.lock(|l| l.set_default_layer(i));
+                            }
+                            _ => (),
+                        }
+                    }
+                    MessageType::Remote(m) => tx.lock(|t| t.send_event(m)),
+                })
         });
     }
 

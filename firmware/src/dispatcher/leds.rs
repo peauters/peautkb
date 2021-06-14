@@ -13,6 +13,8 @@ use ws2812_spi::Ws2812;
 
 pub struct LEDs {
     leds: Ws2812<Spi<SPI2, (NoSck, NoMiso, PB15<Alternate<AF5>>)>>,
+    i: u8,
+    on: bool,
 }
 
 impl LEDs {
@@ -27,11 +29,32 @@ impl LEDs {
 
         let leds = Ws2812::new(spi);
 
-        LEDs { leds }
+        LEDs {
+            leds,
+            i: 0,
+            on: false,
+        }
     }
 
-    fn initial() -> RGB8 {
-        RGB8 { r: 255, g: 0, b: 0 }
+    fn wheel(mut wheel_pos: u8) -> RGB8 {
+        wheel_pos = 255 - wheel_pos;
+        if wheel_pos < 85 {
+            return (255 - wheel_pos * 3, 0, wheel_pos * 3).into();
+        }
+        if wheel_pos < 170 {
+            wheel_pos -= 85;
+            return (0, wheel_pos * 3, 255 - wheel_pos * 3).into();
+        }
+        wheel_pos -= 170;
+        (wheel_pos * 3, 255 - wheel_pos * 3, 0).into()
+    }
+
+    fn update_leds(&mut self) {
+        if self.on {
+            let colours: [RGB8; 31] = [LEDs::wheel(self.i); 31];
+            self.leds.write(colours.iter().cloned()).ok();
+            self.i = if self.i < 255 { self.i + 1 } else { 0 };
+        }
     }
 }
 
@@ -40,15 +63,14 @@ impl State for LEDs {
     #[inline]
     fn handle_event(&mut self, message: Message) -> Self::Messages {
         match message {
-            Message::LateInit => {
-                let all_blue: [RGB8; 31] = [LEDs::initial(); 31];
-                self.leds.write(all_blue.iter().cloned()).unwrap();
-                defmt::info!("sent to leds");
+            Message::UpdateDisplay => {
+                self.update_leds();
                 None
             }
             _ => None,
         }
     }
+
     fn write_to_display<DI, DSIZE>(&mut self, _display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
