@@ -24,6 +24,8 @@ pub enum MenuAction {
     Down,
     Select,
     Close,
+    Left,
+    Right,
 }
 
 #[derive(Copy, Clone, Default)]

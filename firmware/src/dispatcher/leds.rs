@@ -15,6 +15,13 @@ pub struct LEDs {
     leds: Ws2812<Spi<SPI2, (NoSck, NoMiso, PB15<Alternate<AF5>>)>>,
     i: u8,
     on: bool,
+    mode: Mode,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Mode {
+    Wheel,
+    Solid(u8, u8, u8),
 }
 
 impl LEDs {
@@ -32,29 +39,52 @@ impl LEDs {
         LEDs {
             leds,
             i: 0,
-            on: false,
+            on: true,
+            mode: Mode::Solid(0, 128, 200),
         }
     }
 
-    fn wheel(mut wheel_pos: u8) -> RGB8 {
-        wheel_pos = 255 - wheel_pos;
-        if wheel_pos < 85 {
-            return (255 - wheel_pos * 3, 0, wheel_pos * 3).into();
+    fn choose_mode(&mut self, mode: Mode) {
+        self.mode = mode;
+        match self.mode {
+            Mode::Solid(_, _, _) => self.solid(),
+            _ => (),
         }
-        if wheel_pos < 170 {
-            wheel_pos -= 85;
-            return (0, wheel_pos * 3, 255 - wheel_pos * 3).into();
-        }
-        wheel_pos -= 170;
-        (wheel_pos * 3, 255 - wheel_pos * 3, 0).into()
     }
 
     fn update_leds(&mut self) {
         if self.on {
-            let colours: [RGB8; 31] = [LEDs::wheel(self.i); 31];
-            self.leds.write(colours.iter().cloned()).ok();
-            self.i = if self.i < 255 { self.i + 1 } else { 0 };
+            match self.mode {
+                Mode::Wheel => self.wheel(),
+                _ => (),
+            }
         }
+    }
+
+    fn solid(&mut self) {
+        if let Mode::Solid(r, g, b) = self.mode {
+            let colours: [RGB8; 31] = [(r, g, b).into(); 31];
+            self.leds.write(colours.iter().cloned()).ok();
+        }
+    }
+
+    fn wheel(&mut self) {
+        fn wheel(mut wheel_pos: u8) -> RGB8 {
+            wheel_pos = 255 - wheel_pos;
+            if wheel_pos < 85 {
+                return (255 - wheel_pos * 3, 0, wheel_pos * 3).into();
+            }
+            if wheel_pos < 170 {
+                wheel_pos -= 85;
+                return (0, wheel_pos * 3, 255 - wheel_pos * 3).into();
+            }
+            wheel_pos -= 170;
+            (wheel_pos * 3, 255 - wheel_pos * 3, 0).into()
+        }
+
+        let colours: [RGB8; 31] = [wheel(self.i); 31];
+        self.leds.write(colours.iter().cloned()).ok();
+        self.i = if self.i < 255 { self.i + 1 } else { 0 };
     }
 }
 
@@ -65,6 +95,14 @@ impl State for LEDs {
         match message {
             Message::UpdateDisplay => {
                 self.update_leds();
+                None
+            }
+            Message::LEDMode(mode) => {
+                self.choose_mode(mode);
+                None
+            }
+            Message::LateInit => {
+                self.choose_mode(self.mode);
                 None
             }
             _ => None,

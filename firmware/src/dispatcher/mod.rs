@@ -98,6 +98,7 @@ pub enum Message {
     Menu(menu::MenuAction),
     SetDefaultLayer(usize),
     Bongo,
+    LEDMode(leds::Mode),
 }
 
 pub enum MessageType {

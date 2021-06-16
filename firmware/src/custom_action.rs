@@ -13,6 +13,8 @@ pub enum PkbAction {
     MenuUp,
     MenuDown,
     MenuSelect,
+    MenuLeft,
+    MenuRight,
     HoldCmd,
     ReleaseCmd,
     HoldCtrl,
@@ -80,6 +82,8 @@ impl CustomActionState {
             CustomEvent::Release(PkbAction::MenuDown) => Some(Message::Menu(MenuAction::Down)),
             CustomEvent::Release(PkbAction::MenuSelect) => Some(Message::Menu(MenuAction::Select)),
             CustomEvent::Release(PkbAction::MenuClose) => Some(Message::Menu(MenuAction::Close)),
+            CustomEvent::Release(PkbAction::MenuLeft) => Some(Message::Menu(MenuAction::Left)),
+            CustomEvent::Release(PkbAction::MenuRight) => Some(Message::Menu(MenuAction::Right)),
             _ => None,
         }
     }

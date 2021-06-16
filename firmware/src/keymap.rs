@@ -29,6 +29,8 @@ const MENU_OPEN: Action<PkbAction> =
     MultipleActions(&[Custom(PkbAction::MenuOpen), d(Layer::Menu as usize)]);
 const MENU_UP: Action<PkbAction> = Custom(PkbAction::MenuUp);
 const MENU_DOWN: Action<PkbAction> = Custom(PkbAction::MenuDown);
+const MENU_LEFT: Action<PkbAction> = Custom(PkbAction::MenuLeft);
+const MENU_RIGHT: Action<PkbAction> = Custom(PkbAction::MenuRight);
 const MENU_SELECT: Action<PkbAction> = Custom(PkbAction::MenuSelect);
 const MENU_CLOSE: Action<PkbAction> =
     MultipleActions(&[Custom(PkbAction::MenuClose), d(Layer::Default as usize)]);
@@ -114,7 +116,7 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      NoOp,               NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      MENU_CLOSE,         NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      MENU_SELECT,        NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
-        &[MENU_DOWN,  MENU_UP,      Trans,    Trans,      Trans,         Trans,     Trans,              Trans,      Trans,    Trans,             Trans,       Trans,     NoOp,       NoOp],
+        &[MENU_DOWN,  MENU_UP,      Trans,    Trans,      Trans,         Trans,     Trans,              Trans,      Trans,    Trans,             Trans,       Trans,     MENU_LEFT,  MENU_RIGHT],
     ],   
     // CS    
     &[   
