@@ -148,6 +148,7 @@ pub enum Layer {
     Numbers,
     Navigation,
     ShiftNumbers,
+    Symbols,
     Tabbing,
     Menu,
     CS,
@@ -167,10 +168,27 @@ impl From<usize> for Layer {
             1 => Layer::Numbers,
             2 => Layer::Navigation,
             3 => Layer::ShiftNumbers,
-            4 => Layer::Tabbing,
-            5 => Layer::Menu,
-            6 => Layer::CS,
+            4 => Layer::Symbols,
+            5 => Layer::Tabbing,
+            6 => Layer::Menu,
+            7 => Layer::CS,
             _ => Layer::Missing,
+        }
+    }
+}
+
+impl From<Layer> for usize {
+    fn from(layer: Layer) -> Self {
+        match layer {
+            Layer::Default => 0,
+            Layer::Numbers => 1,
+            Layer::Navigation => 2,
+            Layer::ShiftNumbers => 3,
+            Layer::Symbols => 4,
+            Layer::Tabbing => 5,
+            Layer::Menu => 6,
+            Layer::CS => 7,
+            Layer::Missing => 8,
         }
     }
 }
@@ -180,8 +198,9 @@ impl From<Layer> for &str {
         match layer {
             Layer::Default => "default",
             Layer::Numbers => "numbers",
-            Layer::ShiftNumbers => "shift nums",
             Layer::Navigation => "nav",
+            Layer::ShiftNumbers => "shift nums",
+            Layer::Symbols => "symbols",
             Layer::Tabbing => "tabbing",
             Layer::Menu => "menu",
             Layer::CS => "CS",

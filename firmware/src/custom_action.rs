@@ -70,7 +70,11 @@ impl CustomActionState {
                 Some(Message::CtrlReleased)
             }
             CustomEvent::Release(PkbAction::MenuOpen) => {
-                Some(Message::DisplaySelect(DisplayedState::Menu))
+                if self.is_primary {
+                    Some(Message::DisplaySelect(DisplayedState::Menu))
+                } else {
+                    None
+                }
             }
             CustomEvent::Release(PkbAction::MenuUp) => Some(Message::Menu(MenuAction::Up)),
             CustomEvent::Release(PkbAction::MenuDown) => Some(Message::Menu(MenuAction::Down)),

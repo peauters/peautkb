@@ -10,11 +10,12 @@ use crate::multi::{Multi, Multi::*};
 
 #[rustfmt::skip]
 const MENU : &[&[MenuItem]] = &[
-    &[i("ping", Message::Ping), sm("display", 1), sm("keymap", 4)],
+    &[i("ping", Message::Ping), sm("display", 1), sm("leds", 5), sm("keymap", 4)],
     &[sm("left", 2), sm("right", 3)],
     &[i("info", Message::DisplaySelect(DisplayedState::Info)), i("bongo", Message::DisplaySelect(DisplayedState::Bongo))],
     &[i("info", Message::SecondaryDisplaySelect(DisplayedState::Info)), i("bongo", Message::SecondaryDisplaySelect(DisplayedState::Bongo))],
-    &[i("default", Message::SetDefaultLayer(0)), i("cs", Message::SetDefaultLayer(5))],
+    &[i("default", Message::SetDefaultLayer(0)), i("cs", Message::SetDefaultLayer(Layer::CS as usize))],
+    &[]
     ];
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
