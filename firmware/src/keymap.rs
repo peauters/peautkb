@@ -1,4 +1,5 @@
 use crate::custom_action::PkbAction;
+use crate::dispatcher::Layer;
 use crate::keyboard::MediaKey;
 use keyberon::action::{d, k, l, m, Action, Action::*, HoldTapConfig};
 use keyberon::key_code::KeyCode::*;
@@ -7,19 +8,30 @@ const PLAY_PAUSE: Action<PkbAction> = Custom(PkbAction::MediaKey(MediaKey::PlayP
 const NEXT: Action<PkbAction> = Custom(PkbAction::MediaKey(MediaKey::NextTrack));
 const PREVIOUS: Action<PkbAction> = Custom(PkbAction::MediaKey(MediaKey::PrevTrack));
 
-const START_CMDT: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::HoldCmd), d(4), k(Tab)]);
-const END_CMDT: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::ReleaseCmd), d(0)]);
+const START_CMDT: Action<PkbAction> = MultipleActions(&[
+    Custom(PkbAction::HoldCmd),
+    d(Layer::Tabbing as usize),
+    k(Tab),
+]);
+const END_CMDT: Action<PkbAction> =
+    MultipleActions(&[Custom(PkbAction::ReleaseCmd), d(Layer::Default as usize)]);
 
-const START_CTRLT: Action<PkbAction> =
-    MultipleActions(&[Custom(PkbAction::HoldCtrl), d(3), k(Tab)]);
-const END_CTRLT: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::ReleaseCtrl), d(0)]);
+const START_CTRLT: Action<PkbAction> = MultipleActions(&[
+    Custom(PkbAction::HoldCtrl),
+    d(Layer::Tabbing as usize),
+    k(Tab),
+]);
+const END_CTRLT: Action<PkbAction> =
+    MultipleActions(&[Custom(PkbAction::ReleaseCtrl), d(Layer::Default as usize)]);
 const SHFT_TAB: Action<PkbAction> = m(&[LShift, Tab]);
 
-const MENU_OPEN: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::MenuOpen), d(5)]);
+const MENU_OPEN: Action<PkbAction> =
+    MultipleActions(&[Custom(PkbAction::MenuOpen), d(Layer::Menu as usize)]);
 const MENU_UP: Action<PkbAction> = Custom(PkbAction::MenuUp);
 const MENU_DOWN: Action<PkbAction> = Custom(PkbAction::MenuDown);
 const MENU_SELECT: Action<PkbAction> = Custom(PkbAction::MenuSelect);
-const MENU_CLOSE: Action<PkbAction> = MultipleActions(&[Custom(PkbAction::MenuClose), d(0)]);
+const MENU_CLOSE: Action<PkbAction> =
+    MultipleActions(&[Custom(PkbAction::MenuClose), d(Layer::Default as usize)]);
 
 const ENTER_SHIFT: Action<PkbAction> = HoldTap {
     timeout: 200,
@@ -29,17 +41,13 @@ const ENTER_SHIFT: Action<PkbAction> = HoldTap {
     config: HoldTapConfig::HoldOnOtherKeyPress,
 };
 
-macro_rules! th {
-    ($t:expr, $h:expr) => {
-        HoldTap {
-            timeout: 200,
-            hold: $h,
-            tap: $t,
-            tap_hold_interval: 0,
-            config: HoldTapConfig::Default,
-        }
-    };
-}
+const SPACE_L4: Action<PkbAction> = HoldTap {
+    timeout: 200,
+    hold: &l(4),
+    tap: &k(Space),
+    tap_hold_interval: 0,
+    config: HoldTapConfig::HoldOnOtherKeyPress,
+};
 
 macro_rules! s {
     ($k:ident) => {
@@ -47,30 +55,30 @@ macro_rules! s {
     };
 }
 
-const T_LC: Action<PkbAction> = th!(&k(T), &s!(LBracket));
-const N_RC: Action<PkbAction> = th!(&k(N), &s!(RBracket));
+const LC: Action<PkbAction> = s!(LBracket);
+const RC: Action<PkbAction> = s!(RBracket);
 
-const P_LS: Action<PkbAction> = th!(&k(P), &k(LBracket));
-const L_RS: Action<PkbAction> = th!(&k(L), &k(RBracket));
+const LS: Action<PkbAction> = k(LBracket);
+const RS: Action<PkbAction> = k(RBracket);
 
-const S_LB: Action<PkbAction> = th!(&k(S), &s!(Kb9));
-const E_RB: Action<PkbAction> = th!(&k(E), &s!(Kb0));
+const LB: Action<PkbAction> = s!(Kb9);
+const RB: Action<PkbAction> = s!(Kb0);
 
-const M_SC: Action<PkbAction> = th!(&k(M), &k(SColon));
-const G_CO: Action<PkbAction> = th!(&k(G), &s!(SColon));
+const SC: Action<PkbAction> = k(SColon);
+const CO: Action<PkbAction> = s!(SColon);
 
-const B_SP: Action<PkbAction> = th!(&k(B), &s!(Quote));
-const J_QU: Action<PkbAction> = th!(&k(J), &k(Quote));
+const DQ: Action<PkbAction> = s!(Quote);
+const QU: Action<PkbAction> = k(Quote);
 
-const F_HS: Action<PkbAction> = th!(&k(F), &m(&[LAlt, LShift, Kb3]));
+const HASH: Action<PkbAction> = m(&[LAlt, Kb3]);
 
 #[rustfmt::skip]
 pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
     &[
-        &[k(Tab),     k(Q),         k(W),     F_HS,       P_LS,          B_SP,      k(Escape),          k(Insert),  J_QU,     L_RS,              k(U),        k(Y),      k(Quote),   k(SColon)],
-        &[k(LCtrl),   k(A),         k(R),     S_LB,       T_LC,          G_CO,      MENU_OPEN,          k(Delete),  M_SC,     N_RC,              E_RB,        k(I),      k(O),       k(Bslash)],
+        &[k(Tab),     k(Q),         k(W),     k(F),       k(P),          k(B),      k(Escape),          k(Insert),  k(J),     k(L),              k(U),        k(Y),      k(Quote),   k(SColon)],
+        &[k(LCtrl),   k(A),         k(R),     k(S),       k(T),          k(G),      MENU_OPEN,          k(Delete),  k(M),     k(N),              k(E),        k(I),      k(O),       k(Bslash)],
         &[k(LShift),  k(Z),         k(X),     k(C),       k(D),          k(V),      k(Mute),            PLAY_PAUSE, k(K),     k(H),              k(Comma),    k(Dot),    k(Slash),   k(RShift)],
-        &[k(VolUp),   k(VolDown),   k(LAlt),  k(BSpace),  ENTER_SHIFT,   k(LGui),   l(1),               l(2),       k(RGui),  k(Space),          k(RCtrl),    k(RAlt),   PREVIOUS,   NEXT],
+        &[k(VolUp),   k(VolDown),   k(LAlt),  k(BSpace),  ENTER_SHIFT,   k(LGui),   l(1),               l(2),       k(RGui),  SPACE_L4,          k(RCtrl),    k(RAlt),   PREVIOUS,   NEXT],
     ], 
     &[
         &[Trans,      k(F1),        k(F2),    k(F3),      k(F4),         k(F5),     k(F6),              k(F7),      k(F8),    k(F9),             k(F10),      k(F11),    k(F12),     Trans],
@@ -90,6 +98,12 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
         &[Trans,      s!(Grave),    NoOp,     NoOp,       s!(Minus),     s!(Equal), Trans,              Trans,      NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       Trans],
         &[Trans,      Trans,        Trans,    Trans,      Trans,         Trans,     Trans,              Trans,      Trans,    Trans,             Trans,       Trans,     Trans,      Trans],
     ],    
+    &[
+        &[Trans,      NoOp,         NoOp,     HASH,       DQ,            NoOp,      NoOp,               NoOp,       NoOp,     QU,                NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      NoOp,         LS,       LB,         LC,            CO,        NoOp,               NoOp,       SC,       RC,                RB,          RS,        NoOp,       NoOp],
+        &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      NoOp,               NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      Trans,        Trans,    Trans,      Trans,         Trans,     Trans,              Trans,      Trans,    Trans,             Trans,       Trans,     Trans,      Trans],
+    ],
     &[   
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      NoOp,               NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      NoOp,               NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
