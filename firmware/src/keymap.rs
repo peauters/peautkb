@@ -1,8 +1,8 @@
 use crate::custom_action::PkbAction;
-use crate::dispatcher::Layer;
 use crate::keyboard::MediaKey;
 use keyberon::action::{d, k, l, m, Action, Action::*, HoldTapConfig};
 use keyberon::key_code::KeyCode::*;
+use serde::{Deserialize, Serialize};
 
 const PLAY_PAUSE: Action<PkbAction> = Custom(PkbAction::MediaKey(MediaKey::PlayPause));
 const NEXT: Action<PkbAction> = Custom(PkbAction::MediaKey(MediaKey::NextTrack));
@@ -133,3 +133,70 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
 //         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,       NoOp,      NoOp,               NoOp,       NoOp,     NoOp,        NoOp,        NoOp,      NoOp,     NoOp],
 //         &[Trans,      Trans,        Trans,    Trans,      Trans,      Trans,     Trans,              Trans,      Trans,    Trans,       Trans,       Trans,     Trans,    Trans],
 //     ],
+
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Layer {
+    Default,
+    Numbers,
+    Navigation,
+    ShiftNumbers,
+    Symbols,
+    Tabbing,
+    Menu,
+    CS,
+    Missing,
+}
+
+impl Default for Layer {
+    fn default() -> Self {
+        Layer::Default
+    }
+}
+
+impl From<usize> for Layer {
+    fn from(i: usize) -> Layer {
+        match i {
+            0 => Layer::Default,
+            1 => Layer::Numbers,
+            2 => Layer::Navigation,
+            3 => Layer::ShiftNumbers,
+            4 => Layer::Symbols,
+            5 => Layer::Tabbing,
+            6 => Layer::Menu,
+            7 => Layer::CS,
+            _ => Layer::Missing,
+        }
+    }
+}
+
+impl From<Layer> for usize {
+    fn from(layer: Layer) -> Self {
+        match layer {
+            Layer::Default => 0,
+            Layer::Numbers => 1,
+            Layer::Navigation => 2,
+            Layer::ShiftNumbers => 3,
+            Layer::Symbols => 4,
+            Layer::Tabbing => 5,
+            Layer::Menu => 6,
+            Layer::CS => 7,
+            Layer::Missing => 8,
+        }
+    }
+}
+
+impl From<Layer> for &str {
+    fn from(layer: Layer) -> &'static str {
+        match layer {
+            Layer::Default => "default",
+            Layer::Numbers => "numbers",
+            Layer::Navigation => "nav",
+            Layer::ShiftNumbers => "shift nums",
+            Layer::Symbols => "symbols",
+            Layer::Tabbing => "tabbing",
+            Layer::Menu => "menu",
+            Layer::CS => "CS",
+            Layer::Missing => "missing",
+        }
+    }
+}

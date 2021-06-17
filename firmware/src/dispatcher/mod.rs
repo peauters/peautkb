@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use embedded_graphics::prelude::*;
 use ssd1306::{displaysize::DisplaySize, mode::GraphicsMode, prelude::*};
 
+use crate::keymap::Layer;
+
 mod bongo;
 pub mod display;
 mod info;
@@ -67,7 +69,8 @@ impl Dispatcher {
             self.oled,
             (DisplayedState::Info, &mut self.info),
             (DisplayedState::Menu, &mut self.menu),
-            (DisplayedState::Bongo, &mut self.bongo)
+            (DisplayedState::Bongo, &mut self.bongo),
+            (DisplayedState::Leds, &mut self.leds)
         );
     }
 }
@@ -96,9 +99,11 @@ pub enum Message {
     DisplaySelect(DisplayedState),
     SecondaryDisplaySelect(DisplayedState),
     Menu(menu::MenuAction),
+    SecondaryMenu(menu::SecondaryMenuAction),
     SetDefaultLayer(usize),
     Bongo,
-    LEDMode(leds::Mode),
+    LED(leds::Action),
+    SecondaryLED(leds::Action),
 }
 
 pub enum MessageType {
@@ -114,6 +119,8 @@ impl Message {
             | Message::SecondaryKeyRelease(_, _)
             | Message::SecondaryDisplaySelect(_)
             | Message::SecondaryCurrentLayer(_)
+            | Message::SecondaryLED(_)
+            | Message::SecondaryMenu(_)
             | Message::Bongo
             | Message::Pong => MessageType::Remote(self),
             _ => MessageType::Local(self),
@@ -126,6 +133,7 @@ pub enum DisplayedState {
     Info,
     Menu,
     Bongo,
+    Leds,
 }
 
 impl Default for DisplayedState {
@@ -141,71 +149,4 @@ pub trait State {
     where
         DSIZE: DisplaySize,
         DI: WriteOnlyDataCommand;
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum Layer {
-    Default,
-    Numbers,
-    Navigation,
-    ShiftNumbers,
-    Symbols,
-    Tabbing,
-    Menu,
-    CS,
-    Missing,
-}
-
-impl Default for Layer {
-    fn default() -> Self {
-        Layer::Default
-    }
-}
-
-impl From<usize> for Layer {
-    fn from(i: usize) -> Layer {
-        match i {
-            0 => Layer::Default,
-            1 => Layer::Numbers,
-            2 => Layer::Navigation,
-            3 => Layer::ShiftNumbers,
-            4 => Layer::Symbols,
-            5 => Layer::Tabbing,
-            6 => Layer::Menu,
-            7 => Layer::CS,
-            _ => Layer::Missing,
-        }
-    }
-}
-
-impl From<Layer> for usize {
-    fn from(layer: Layer) -> Self {
-        match layer {
-            Layer::Default => 0,
-            Layer::Numbers => 1,
-            Layer::Navigation => 2,
-            Layer::ShiftNumbers => 3,
-            Layer::Symbols => 4,
-            Layer::Tabbing => 5,
-            Layer::Menu => 6,
-            Layer::CS => 7,
-            Layer::Missing => 8,
-        }
-    }
-}
-
-impl From<Layer> for &str {
-    fn from(layer: Layer) -> &'static str {
-        match layer {
-            Layer::Default => "default",
-            Layer::Numbers => "numbers",
-            Layer::Navigation => "nav",
-            Layer::ShiftNumbers => "shift nums",
-            Layer::Symbols => "symbols",
-            Layer::Tabbing => "tabbing",
-            Layer::Menu => "menu",
-            Layer::CS => "CS",
-            Layer::Missing => "missing",
-        }
-    }
 }

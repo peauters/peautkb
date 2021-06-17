@@ -4,6 +4,7 @@ pub enum Multi<T> {
     One(T),
     Two(T, T),
     Three(T, T, T),
+    Four(T, T, T, T),
 }
 
 impl<T> Multi<T> {
@@ -22,6 +23,10 @@ impl<T> Multi<T> {
                 *self = Multi::Two(r, s);
                 Some(t)
             }
+            Multi::Four(t, r, s, x) => {
+                *self = Multi::Three(r, s, x);
+                Some(t)
+            }
         }
     }
 
@@ -30,6 +35,7 @@ impl<T> Multi<T> {
             Multi::None => *self = Multi::One(t),
             Multi::One(r) => *self = Multi::Two(t, r),
             Multi::Two(r, s) => *self = Multi::Three(t, r, s),
+            Multi::Three(r, s, x) => *self = Multi::Four(t, r, s, x),
             _ => *self = Multi::None,
         }
     }
@@ -39,6 +45,7 @@ impl<T> Multi<T> {
             Multi::None => *self = Multi::One(x),
             Multi::One(t) => *self = Multi::Two(t, x),
             Multi::Two(t, r) => *self = Multi::Three(t, r, x),
+            Multi::Three(t, r, s) => *self = Multi::Four(t, r, s, x),
             _ => *self = Multi::None,
         }
     }
@@ -48,7 +55,10 @@ impl<T> Multi<T> {
             (Multi::None, other) => other,
             (Multi::One(t), Multi::One(r)) => Multi::Two(t, r),
             (Multi::One(t), Multi::Two(r, s)) => Multi::Three(t, r, s),
+            (Multi::One(t), Multi::Three(r, s, x)) => Multi::Four(t, r, s, x),
             (Multi::Two(t, r), Multi::One(s)) => Multi::Three(t, r, s),
+            (Multi::Two(t, r), Multi::Two(s, x)) => Multi::Four(t, r, s, x),
+            (Multi::Three(t, r, s), Multi::One(x)) => Multi::Four(t, r, s, x),
             _ => Multi::None,
         }
     }

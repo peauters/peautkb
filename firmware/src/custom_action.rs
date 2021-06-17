@@ -1,5 +1,6 @@
-use crate::dispatcher::{menu::MenuAction, DisplayedState, Layer, Message};
+use crate::dispatcher::{menu::MenuAction, DisplayedState, Message};
 use crate::keyboard::*;
+use crate::keymap::Layer;
 
 use keyberon::key_code::KeyCode;
 use keyberon::layout::{CustomEvent, Layout};

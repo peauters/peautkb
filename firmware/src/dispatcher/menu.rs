@@ -6,17 +6,18 @@ use embedded_graphics::{
     style::TextStyleBuilder,
 };
 
+use crate::dispatcher::leds::{Action, Mode};
 use crate::multi::{Multi, Multi::*};
 
 #[rustfmt::skip]
 const MENU : &[&[MenuItem]] = &[
     &[i("ping", Message::Ping), sm("display", 1), sm("leds", 5), sm("keymap", 4)],
     &[sm("left", 2), sm("right", 3)],
-    &[i("info", Message::DisplaySelect(DisplayedState::Info)), i("bongo", Message::DisplaySelect(DisplayedState::Bongo))],
-    &[i("info", Message::SecondaryDisplaySelect(DisplayedState::Info)), i("bongo", Message::SecondaryDisplaySelect(DisplayedState::Bongo))],
+    &[i("info", Message::DisplaySelect(DisplayedState::Info)), i("bongo", Message::DisplaySelect(DisplayedState::Bongo)), i("leds", Message::DisplaySelect(DisplayedState::Leds))],
+    &[i("info", Message::SecondaryDisplaySelect(DisplayedState::Info)), i("bongo", Message::SecondaryDisplaySelect(DisplayedState::Bongo)), i("leds", Message::SecondaryDisplaySelect(DisplayedState::Leds))],
     &[i("default", Message::SetDefaultLayer(0)), i("cs", Message::SetDefaultLayer(Layer::CS as usize))],
-    &[]
-    ];
+    &[i("off", Message::LED(Action::SetMode(leds::Mode::Off))), smn("solid", 6, DisplayedState::Leds, Message::LED(Action::SetMode(Mode::Solid))), i("wheel", Message::LED(Action::SetMode(leds::Mode::Wheel)))],
+    &[d("red", Message::LED(Action::DecR), Message::LED(Action::IncR)), d("green", Message::LED(Action::DecG), Message::LED(Action::IncG)), d("blue", Message::LED(Action::DecB), Message::LED(Action::IncB)), d("update", Message::LED(Action::Update), Message::LED(Action::Update))]];
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MenuAction {
@@ -28,6 +29,12 @@ pub enum MenuAction {
     Right,
 }
 
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SecondaryMenuAction {
+    Open(DisplayedState),
+    Close,
+}
+
 #[derive(Copy, Clone, Default)]
 pub struct Menu {
     current_menu: usize,
@@ -35,6 +42,7 @@ pub struct Menu {
     last_display_state: DisplayedState,
     default_layer: usize,
     previous_menu: Multi<usize>,
+    previous_item: Multi<usize>,
 }
 
 impl Menu {
@@ -52,35 +60,61 @@ impl Menu {
         None
     }
 
+    fn left(&mut self) -> Multi<Message> {
+        match MENU[self.current_menu][self.current_item - 1].menu_type {
+            Type::Dial(left, _) => One(left),
+            _ => None,
+        }
+    }
+
+    fn right(&mut self) -> Multi<Message> {
+        match MENU[self.current_menu][self.current_item - 1].menu_type {
+            Type::Dial(_, right) => One(right),
+            _ => None,
+        }
+    }
+
     fn select(&mut self) -> Multi<Message> {
         match (self.current_menu, self.current_item) {
             (0, 0) => self.close(),
             (_, 0) => {
                 self.current_menu = self.previous_menu.take().unwrap_or(0);
+                self.current_item = self.previous_item.take().unwrap_or(0);
                 None
             }
             _ => {
                 let item = &MENU[self.current_menu][self.current_item - 1];
-                match item.menu_type {
-                    Type::Message(m) => self.close().add(One(m)),
+                let messages = match item.menu_type {
+                    Type::Item => self.close(),
                     Type::SubMenu(i) => {
                         self.previous_menu.push(self.current_menu);
+                        self.previous_item.push(self.current_item);
                         self.current_menu = i;
                         self.current_item = 0;
                         None
                     }
-                }
+                    Type::SecondaryMenu(i, secondary) => {
+                        self.previous_menu.push(self.current_menu);
+                        self.current_menu = i;
+                        self.current_item = 0;
+                        One(Message::SecondaryMenu(SecondaryMenuAction::Open(secondary)))
+                    }
+                    _ => None,
+                };
+                messages.add(item.message)
             }
         }
     }
 
     fn close(&mut self) -> Multi<Message> {
-        self.previous_menu = Multi::None;
+        self.previous_menu = None;
+        self.previous_item = None;
         self.current_menu = 0;
         self.current_item = 0;
-        Two(
+        Three(
             Message::SetDefaultLayer(self.default_layer),
             Message::DisplaySelect(self.last_display_state),
+            Message::SecondaryMenu(SecondaryMenuAction::Close),
         )
     }
 
@@ -100,10 +134,23 @@ impl State for Menu {
         match message {
             Message::Menu(MenuAction::Up) => self.up(),
             Message::Menu(MenuAction::Down) => self.down(),
+            Message::Menu(MenuAction::Left) => self.left(),
+            Message::Menu(MenuAction::Right) => self.right(),
             Message::Menu(MenuAction::Select) => self.select(),
             Message::Menu(MenuAction::Close) => self.close(),
             Message::DisplaySelect(s) => self.last_display_state(s),
-            // TODO track default layer changes
+            Message::SecondaryMenu(SecondaryMenuAction::Open(s)) => {
+                self.last_display_state(s);
+                One(Message::DisplaySelect(s))
+            }
+            Message::SecondaryMenu(SecondaryMenuAction::Close) => {
+                self.close();
+                None
+            }
+            Message::SetDefaultLayer(l) => {
+                self.default_layer = l;
+                None
+            }
             _ => None,
         }
     }
@@ -140,15 +187,18 @@ impl State for Menu {
     }
 }
 
+#[derive(Copy, Clone)]
 struct MenuItem {
     name: &'static str,
     menu_type: Type,
+    message: Multi<Message>,
 }
 
 const fn i(name: &'static str, message: Message) -> MenuItem {
     MenuItem {
         name,
-        menu_type: Type::Message(message),
+        menu_type: Type::Item,
+        message: One(message),
     }
 }
 
@@ -156,10 +206,35 @@ const fn sm(name: &'static str, index: usize) -> MenuItem {
     MenuItem {
         name,
         menu_type: Type::SubMenu(index),
+        message: None,
     }
 }
 
+const fn smn(
+    name: &'static str,
+    index: usize,
+    snd_display: DisplayedState,
+    message: Message,
+) -> MenuItem {
+    MenuItem {
+        name,
+        menu_type: Type::SecondaryMenu(index, snd_display),
+        message: One(message),
+    }
+}
+
+const fn d(name: &'static str, left: Message, right: Message) -> MenuItem {
+    MenuItem {
+        name,
+        menu_type: Type::Dial(left, right),
+        message: None,
+    }
+}
+
+#[derive(Copy, Clone)]
 enum Type {
-    Message(Message),
+    Item,
     SubMenu(usize),
+    SecondaryMenu(usize, DisplayedState),
+    Dial(Message, Message),
 }
