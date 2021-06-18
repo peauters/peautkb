@@ -40,7 +40,7 @@ const ENTER_SHIFT: Action<PkbAction> = HoldTap {
     hold: &k(RShift),
     tap: &k(Enter),
     tap_hold_interval: 0,
-    config: HoldTapConfig::HoldOnOtherKeyPress,
+    config: HoldTapConfig::Default,
 };
 
 const SPACE_L4: Action<PkbAction> = HoldTap {
@@ -48,7 +48,7 @@ const SPACE_L4: Action<PkbAction> = HoldTap {
     hold: &l(4),
     tap: &k(Space),
     tap_hold_interval: 0,
-    config: HoldTapConfig::HoldOnOtherKeyPress,
+    config: HoldTapConfig::Default,
 };
 
 macro_rules! s {
@@ -73,6 +73,7 @@ const DQ: Action<PkbAction> = s!(Quote);
 const QU: Action<PkbAction> = k(Quote);
 
 const HASH: Action<PkbAction> = m(&[LAlt, Kb3]);
+const TILDA: Action<PkbAction> = s!(Grave);
 
 #[rustfmt::skip]
 pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
@@ -80,7 +81,7 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
         &[k(Tab),     k(Q),         k(W),     k(F),       k(P),          k(B),      k(Escape),          k(Insert),  k(J),     k(L),              k(U),        k(Y),      k(Quote),   k(SColon)],
         &[k(LCtrl),   k(A),         k(R),     k(S),       k(T),          k(G),      MENU_OPEN,          k(Delete),  k(M),     k(N),              k(E),        k(I),      k(O),       k(Bslash)],
         &[k(LShift),  k(Z),         k(X),     k(C),       k(D),          k(V),      k(Mute),            PLAY_PAUSE, k(K),     k(H),              k(Comma),    k(Dot),    k(Slash),   k(RShift)],
-        &[k(VolUp),   k(VolDown),   k(LAlt),  k(BSpace),  ENTER_SHIFT,   k(LGui),   l(1),               l(2),       k(RGui),  SPACE_L4,          k(RCtrl),    k(RAlt),   PREVIOUS,   NEXT],
+        &[k(VolUp),   k(VolDown),   k(LAlt),  k(BSpace),  ENTER_SHIFT,   l(1),      k(LGui),            k(RGui),    l(2),     SPACE_L4,          k(RCtrl),    k(RAlt),   PREVIOUS,   NEXT],
     ], 
     &[
         &[Trans,      k(F1),        k(F2),    k(F3),      k(F4),         k(F5),     k(F6),              k(F7),      k(F8),    k(F9),             k(F10),      k(F11),    k(F12),     Trans],
@@ -101,7 +102,7 @@ pub static LAYERS: keyberon::layout::Layers<PkbAction> = &[
         &[Trans,      Trans,        Trans,    Trans,      Trans,         Trans,     Trans,              Trans,      Trans,    Trans,             Trans,       Trans,     Trans,      Trans],
     ],    
     &[
-        &[Trans,      NoOp,         NoOp,     HASH,       DQ,            NoOp,      NoOp,               NoOp,       NoOp,     QU,                NoOp,        NoOp,      NoOp,       NoOp],
+        &[Trans,      NoOp,         NoOp,     HASH,       DQ,            NoOp,      NoOp,               NoOp,       NoOp,     QU,                TILDA,       NoOp,      NoOp,       NoOp],
         &[Trans,      NoOp,         LS,       LB,         LC,            CO,        NoOp,               NoOp,       SC,       RC,                RB,          RS,        NoOp,       NoOp],
         &[Trans,      NoOp,         NoOp,     NoOp,       NoOp,          NoOp,      NoOp,               NoOp,       NoOp,     NoOp,              NoOp,        NoOp,      NoOp,       NoOp],
         &[Trans,      Trans,        Trans,    Trans,      Trans,         Trans,     Trans,              Trans,      Trans,    Trans,             Trans,       Trans,     Trans,      Trans],
