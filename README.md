@@ -18,4 +18,11 @@ This board has a different footprint to a Pro Micro, which in hindsight has prob
 The firmware is custom, written in `rust` using the [keyberon](https://github.com/TeXitoi/keyberon) as a base. At the moment, it manages communication between each side, the ssd1306 displays and has code to enable media keys in a second usb HID report. The most important feature is bongo cat animated displays. Thank you to [dancarrol](https://github.com/dancarroll/qmk-bongo) for the inspiration.
 
 ### How to build the firmware
-... coming soon?
+- Install rust (see [here](https://www.rust-lang.org/tools/install))
+- Install the compile target for the black-pills `rustup target install thumbv7em-none-eabihf`
+- Install binutils to create a binary file `cargo install cargo-binutils` and `rustup component add llvm-tools-preview` 
+- Build the binary `cargo objcopy --release -- -O binary out.bin`
+- Put the black-pill in dfu boot loader. Hold the `NRST` and `BOOT0` buttons at the same time, then let go of `NRST` while still holding `BOOT0` button for a second longer.
+- Check you can see it with `lsusb`
+- Flash with dfu-util or similar
+- Repeat for both sides
