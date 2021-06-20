@@ -420,9 +420,9 @@ mod app {
         resources = [tick_timer])]
     fn tick(c: tick::Context) {
         let tick::Resources { mut tick_timer } = c.resources;
-        tick_timer.lock(|t| t.wait().ok());
+        // tick_timer.lock(|t| t.wait().ok());
 
-        dispatch_event::spawn(Message::UpdateDisplay).ok();
+        // dispatch_event::spawn(Message::UpdateDisplay).ok();
     }
 
     #[task(resources = [layout, usb_dev, usb_mediakeys_class, custom_action_state], priority = 2, capacity = 64)]

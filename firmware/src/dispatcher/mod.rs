@@ -29,7 +29,7 @@ macro_rules! display {
 }
 
 macro_rules! dispatch {
-    ($ms:ident, $m:ident, $($s:expr),*) => {
+    ($ms:ident, $m:ident, $($s:expr,),+) => {
             $(
                 let l = $s.handle_event($m);
                 let $ms = $ms.chain(l);
@@ -53,7 +53,14 @@ impl Dispatcher {
     pub fn dispatch(&mut self, message: Message) -> impl Iterator<Item = Message> {
         let messages = None.into_iter();
 
-        dispatch!(messages, message, self.oled, self.info, self.leds, self.menu, self.bongo);
+        dispatch!(
+            messages, message,
+            // self.oled,
+            self.info,
+            // self.leds,
+            // self.menu,
+            // self.bongo
+        );
 
         match message {
             Message::DisplaySelect(d) => self.displayed_state = d,
