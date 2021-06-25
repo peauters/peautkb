@@ -86,7 +86,7 @@ mod app {
             config::DmaConfig::default()
                 .memory_increment(true)
                 // .fifo_enable(true)
-                // .fifo_threshold(config::FifoThreshold::ThreeQuarterFull)
+                .fifo_threshold(config::FifoThreshold::ThreeQuarterFull)
                 .fifo_error_interrupt(true)
                 // .transfer_error_interrupt(true),
                 .transfer_complete_interrupt(true),
@@ -119,6 +119,7 @@ mod app {
         let j = i.lock(|i| *i);
         transfer.lock(|transfer| {
             if Stream4::<stm32::DMA1>::get_fifo_error_flag() {
+                defmt::info!("fifo error");
                 transfer.clear_fifo_error_interrupt();
             }
             if Stream4::<stm32::DMA1>::get_transfer_complete_flag() {

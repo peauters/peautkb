@@ -5,7 +5,7 @@ use crate::hal::{
     prelude::*,
     rcc::Clocks,
     spi::{NoMiso, NoSck, Spi},
-    stm32::SPI2,
+    stm32,
 };
 
 use embedded_graphics::{
@@ -15,15 +15,18 @@ use embedded_graphics::{
 };
 
 use numtoa::NumToA;
-use smart_leds::{SmartLedsWrite, RGB8};
-use ws2812_spi::Ws2812;
+use smart_leds::RGB8;
 
-pub struct LEDs {
-    leds: Ws2812<Spi<SPI2, (NoSck, NoMiso, PB15<Alternate<AF5>>)>>,
-    i: u8,
-    mode: Mode,
-    solid_rgb: (u8, u8, u8),
-}
+mod driver;
+mod off;
+mod solid;
+mod wheel;
+
+use driver::Ws2812;
+use stm32f4xx_hal::{
+    dma::{Channel0, Stream4},
+    spi::Tx,
+};
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Mode {
@@ -45,18 +48,86 @@ impl From<Mode> for &str {
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Action {
     SetMode(Mode),
-    IncR,
-    DecR,
-    IncG,
-    DecG,
-    IncB,
-    DecB,
-    Solid((u8, u8, u8)),
+    IncrementRed,
+    DecrementRed,
+    IncrementGreen,
+    DecrementGreen,
+    IncrementBlue,
+    DecrementBlue,
+    Solid(solid::Solid),
     Update,
+}
+#[derive(Copy, Clone, Default)]
+struct LEDMatrix {
+    keys: [[RGB8; 7]; 3],
+    thumb: [RGB8; 5],
+    underglow: [RGB8; 6],
+}
+
+impl IntoIterator for LEDMatrix {
+    type Item = RGB8;
+
+    type IntoIter = Iter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Iter { matrix: self, i: 0 }
+    }
+}
+
+struct Iter {
+    matrix: LEDMatrix,
+    i: usize,
+}
+impl Iterator for Iter {
+    type Item = RGB8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i < 32 {
+            let next = match self.i {
+                0 => self.matrix.underglow[2],
+                1..=3 => self.matrix.keys[0][7 - self.i],
+                4 => self.matrix.underglow[1],
+                5..=6 => self.matrix.keys[0][8 - self.i],
+                7 => self.matrix.underglow[0],
+                8..=9 => self.matrix.keys[0][9 - self.i],
+                10..=16 => self.matrix.keys[1][self.i - 10],
+                17..=18 => self.matrix.keys[2][22 - self.i],
+                19 => self.matrix.underglow[4],
+                20..=21 => self.matrix.keys[2][23 - self.i],
+                22 => self.matrix.underglow[3],
+                23..=24 => self.matrix.keys[2][24 - self.i],
+                25..=29 => self.matrix.thumb[self.i - 25],
+                30 => self.matrix.underglow[5],
+                _ => (0, 0, 0).into(),
+            };
+            self.i += 1;
+            Some(next)
+        } else {
+            None
+        }
+    }
+}
+
+trait LEDMode {
+    fn next_matrix(&mut self, last: LEDMatrix) -> Option<LEDMatrix>;
+}
+
+pub struct LEDs {
+    leds: Ws2812<Stream4<stm32::DMA1>, Channel0, Tx<stm32::SPI2>, &'static mut [u8; 512]>,
+    last: LEDMatrix,
+    mode: Mode,
+    solid_rgb: solid::Solid,
+    off: off::Off,
+    wheel: wheel::Wheel,
 }
 
 impl LEDs {
-    pub fn new(spi2: SPI2, pb15: PB15<Alternate<AF5>>, clocks: Clocks) -> Self {
+    pub fn new(
+        spi2: stm32::SPI2,
+        pb15: PB15<Alternate<AF5>>,
+        clocks: Clocks,
+        stream: Stream4<stm32::DMA1>,
+    ) -> Self {
         let spi = Spi::spi2(
             spi2,
             (NoSck, NoMiso, pb15),
@@ -65,13 +136,18 @@ impl LEDs {
             clocks,
         );
 
-        let leds = Ws2812::new(spi);
+        let buffer = cortex_m::singleton!(: [u8; 512] = [0; 512]).unwrap();
+        let next_buffer = cortex_m::singleton!(: [u8; 512] = [0; 512]).unwrap();
+
+        let leds = Ws2812::new(stream, spi.use_dma().tx(), buffer, next_buffer);
 
         LEDs {
             leds,
-            i: 0,
+            last: LEDMatrix::default(),
             mode: Mode::Solid,
-            solid_rgb: (0, 128, 200),
+            solid_rgb: solid::Solid::new(),
+            off: off::Off::new(),
+            wheel: wheel::Wheel::new(),
         }
     }
 
@@ -83,47 +159,37 @@ impl LEDs {
     fn update_leds(&mut self) {
         match self.mode {
             Mode::Off => self.off(),
-            Mode::Wheel => self.wheel(),
             Mode::Solid => self.solid(),
+            Mode::Wheel => self.wheel(),
         }
     }
 
     fn tick(&mut self) {
         match self.mode {
-            Mode::Wheel => self.wheel(),
-            _ => (),
+            _ => self.update_leds(),
         }
     }
 
     fn off(&mut self) {
-        self.write_all((0, 0, 0));
+        let matrix = self.off.next_matrix(self.last);
+        self.write_all(matrix);
     }
 
     fn solid(&mut self) {
-        self.write_all(self.solid_rgb);
+        let matrix = self.solid_rgb.next_matrix(self.last);
+        self.write_all(matrix);
     }
 
     fn wheel(&mut self) {
-        fn wheel(mut wheel_pos: u8) -> (u8, u8, u8) {
-            wheel_pos = 255 - wheel_pos;
-            if wheel_pos < 85 {
-                return (255 - wheel_pos * 3, 0, wheel_pos * 3);
-            }
-            if wheel_pos < 170 {
-                wheel_pos -= 85;
-                return (0, wheel_pos * 3, 255 - wheel_pos * 3);
-            }
-            wheel_pos -= 170;
-            (wheel_pos * 3, 255 - wheel_pos * 3, 0)
-        }
-
-        self.write_all(wheel(self.i));
-        self.i = if self.i < 255 { self.i + 1 } else { 0 };
+        let matrix = self.wheel.next_matrix(self.last);
+        self.write_all(matrix);
     }
 
-    fn write_all(&mut self, colours: (u8, u8, u8)) {
-        let colours: [RGB8; 32] = [colours.into(); 32];
-        self.leds.write(colours.iter().cloned()).ok();
+    fn write_all(&mut self, matrix: Option<LEDMatrix>) {
+        if let Some(next) = matrix {
+            self.leds.write(next);
+            self.last = next;
+        }
     }
 }
 
@@ -140,39 +206,29 @@ impl State for LEDs {
                 self.choose_mode(mode);
                 Some(Message::SecondaryLED(Action::SetMode(mode)))
             }
-            Message::LED(Action::IncR) => {
-                self.solid_rgb.0 = self.solid_rgb.0.saturating_add(1);
-                self.update_leds();
+            Message::LED(Action::IncrementRed) => {
+                self.solid_rgb.increment_red();
                 Some(Message::SecondaryLED(Action::Solid(self.solid_rgb.clone())))
             }
-            Message::LED(Action::DecR) => {
-                self.solid_rgb.0 = self.solid_rgb.0.saturating_sub(1);
-                self.update_leds();
+            Message::LED(Action::DecrementRed) => {
+                self.solid_rgb.decrement_red();
                 Some(Message::SecondaryLED(Action::Solid(self.solid_rgb.clone())))
             }
-            Message::LED(Action::IncG) => {
-                self.solid_rgb.1 = self.solid_rgb.1.saturating_add(1);
-                self.update_leds();
+            Message::LED(Action::IncrementGreen) => {
+                self.solid_rgb.increment_green();
                 Some(Message::SecondaryLED(Action::Solid(self.solid_rgb.clone())))
             }
-            Message::LED(Action::DecG) => {
-                self.solid_rgb.1 = self.solid_rgb.1.saturating_sub(1);
-                self.update_leds();
+            Message::LED(Action::DecrementGreen) => {
+                self.solid_rgb.decrement_green();
                 Some(Message::SecondaryLED(Action::Solid(self.solid_rgb.clone())))
             }
-            Message::LED(Action::IncB) => {
-                self.solid_rgb.2 = self.solid_rgb.2.saturating_add(1);
-                self.update_leds();
+            Message::LED(Action::IncrementBlue) => {
+                self.solid_rgb.increment_blue();
                 Some(Message::SecondaryLED(Action::Solid(self.solid_rgb.clone())))
             }
-            Message::LED(Action::DecB) => {
-                self.solid_rgb.2 = self.solid_rgb.2.saturating_sub(1);
-                self.update_leds();
+            Message::LED(Action::DecrementBlue) => {
+                self.solid_rgb.decrement_blue();
                 Some(Message::SecondaryLED(Action::Solid(self.solid_rgb.clone())))
-            }
-            Message::LED(Action::Update) => {
-                self.update_leds();
-                Some(Message::SecondaryLED(Action::Update))
             }
             Message::SecondaryLED(Action::SetMode(mode)) => {
                 self.choose_mode(mode);
@@ -180,11 +236,6 @@ impl State for LEDs {
             }
             Message::SecondaryLED(Action::Solid(rgb)) => {
                 self.solid_rgb = rgb;
-                self.update_leds();
-                None
-            }
-            Message::SecondaryLED(Action::Update) => {
-                self.update_leds();
                 None
             }
             Message::LateInit => {
@@ -223,7 +274,7 @@ impl State for LEDs {
             .unwrap();
 
         Text::new(
-            self.solid_rgb.0.numtoa_str(16, &mut buffer),
+            self.solid_rgb.red().numtoa_str(16, &mut buffer),
             Point::new(42, 13),
         )
         .into_styled(font_6x8)
@@ -236,7 +287,7 @@ impl State for LEDs {
             .unwrap();
 
         Text::new(
-            self.solid_rgb.1.numtoa_str(16, &mut buffer),
+            self.solid_rgb.green().numtoa_str(16, &mut buffer),
             Point::new(42, 26),
         )
         .into_styled(font_6x8)
@@ -249,7 +300,7 @@ impl State for LEDs {
             .unwrap();
 
         Text::new(
-            self.solid_rgb.2.numtoa_str(16, &mut buffer),
+            self.solid_rgb.blue().numtoa_str(16, &mut buffer),
             Point::new(42, 39),
         )
         .into_styled(font_6x8)

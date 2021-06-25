@@ -17,7 +17,7 @@ const MENU : &[&[MenuItem]] = &[
     &[i("info", Message::SecondaryDisplaySelect(DisplayedState::Info)), i("bongo", Message::SecondaryDisplaySelect(DisplayedState::Bongo)), i("leds", Message::SecondaryDisplaySelect(DisplayedState::Leds))],
     &[i("default", Message::SetDefaultLayer(0)), i("cs", Message::SetDefaultLayer(Layer::CS as usize))],
     &[i("off", Message::LED(Action::SetMode(leds::Mode::Off))), smn("solid", 6, DisplayedState::Leds, Message::LED(Action::SetMode(Mode::Solid))), i("wheel", Message::LED(Action::SetMode(leds::Mode::Wheel)))],
-    &[d("red", Message::LED(Action::DecR), Message::LED(Action::IncR)), d("green", Message::LED(Action::DecG), Message::LED(Action::IncG)), d("blue", Message::LED(Action::DecB), Message::LED(Action::IncB)), d("update", Message::LED(Action::Update), Message::LED(Action::Update))]];
+    &[d("red", Message::LED(Action::DecrementRed), Message::LED(Action::IncrementRed)), d("green", Message::LED(Action::DecrementGreen), Message::LED(Action::IncrementGreen)), d("blue", Message::LED(Action::DecrementBlue), Message::LED(Action::IncrementBlue))]];
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum MenuAction {

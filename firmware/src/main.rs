@@ -45,6 +45,7 @@ mod app {
     use keyberon::impl_heterogenous_array;
     use keyberon::layout::{Event, Layout};
     use keyberon::matrix::{Matrix, PressedKeys};
+    use stm32f4xx_hal::dma::StreamsTuple;
 
     use crate::app;
 
@@ -208,7 +209,10 @@ mod app {
 
         let layout = Layout::new(LAYERS);
 
-        let leds = leds::LEDs::new(perfs.SPI2, gpiob.pb15.into_alternate_af5(), clocks);
+        let steams = StreamsTuple::new(perfs.DMA1);
+        let stream = steams.4;
+
+        let leds = leds::LEDs::new(perfs.SPI2, gpiob.pb15.into_alternate_af5(), clocks, stream);
 
         ping::spawn_after(Milliseconds::new(4000_u32)).ok();
 
