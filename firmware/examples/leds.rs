@@ -86,7 +86,8 @@ mod app {
 
         let j = c.resources.i.lock(|i| *i);
 
-        let all_off: [RGB8; 31] = [wheel(j); 31];
+        // let all_off: [RGB8; 32] = [wheel(j); 32];
+        let all_off: [RGB8; 32] = [(128, 0, 0).into(); 32];
 
         c.resources
             .leds

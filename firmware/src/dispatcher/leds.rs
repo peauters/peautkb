@@ -122,7 +122,7 @@ impl LEDs {
     }
 
     fn write_all(&mut self, colours: (u8, u8, u8)) {
-        let colours: [RGB8; 31] = [colours.into(); 31];
+        let colours: [RGB8; 32] = [colours.into(); 32];
         self.leds.write(colours.iter().cloned()).ok();
     }
 }
