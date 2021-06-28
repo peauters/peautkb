@@ -52,6 +52,7 @@ impl<T> Multi<T> {
 
     pub fn add(self, other: Multi<T>) -> Multi<T> {
         match (self, other) {
+            (a, Multi::None) => a,
             (Multi::None, other) => other,
             (Multi::One(t), Multi::One(r)) => Multi::Two(t, r),
             (Multi::One(t), Multi::Two(r, s)) => Multi::Three(t, r, s),

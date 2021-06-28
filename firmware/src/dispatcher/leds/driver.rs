@@ -44,7 +44,7 @@ where
         }
     }
 
-    pub fn write<I>(&mut self, values: I)
+    pub fn write<'a, I>(&mut self, values: I)
     where
         I: IntoIterator<Item = RGB8>,
     {
@@ -52,7 +52,7 @@ where
 
         let patterns = [0b1000_1000, 0b1000_1110, 0b11101000, 0b11101110];
         let mut index: usize = 0;
-        for rgb in values {
+        for rgb in values.into_iter() {
             let RGB8 {
                 mut r,
                 mut g,

@@ -1,3 +1,5 @@
+use crate::multi::{Multi, Multi::*};
+
 use super::*;
 
 use embedded_graphics::{
@@ -15,6 +17,29 @@ pub struct Info {
     cmd_held: bool,
     ctrl_held: bool,
     current_layer: Layer,
+    ticks_since_press: u32,
+}
+
+impl Info {
+    fn tick(&mut self) -> Multi<Message> {
+        self.ticks_since_press = self.ticks_since_press.saturating_add(1);
+
+        if self.ticks_since_press > 3 * 60 * 24 {
+            One(Message::Sleep)
+        } else {
+            None
+        }
+    }
+
+    fn press(&mut self) -> Multi<Message> {
+        if self.ticks_since_press > 3 * 60 * 24 {
+            self.ticks_since_press = 0;
+            One(Message::Wake)
+        } else {
+            self.ticks_since_press = 0;
+            None
+        }
+    }
 }
 
 const fn bool_to_string(b: bool) -> &'static str {
@@ -25,7 +50,7 @@ const fn bool_to_string(b: bool) -> &'static str {
 }
 
 impl super::State for Info {
-    type Messages = Option<Message>;
+    type Messages = Multi<Message>;
     fn write_to_display<DI, DSIZE>(&mut self, display: &mut GraphicsMode<DI, DSIZE>)
     where
         DSIZE: DisplaySize,
@@ -45,7 +70,7 @@ impl super::State for Info {
         let hand = match self.hand {
             Some(Hand::Left) => "left",
             Some(Hand::Right) => "right",
-            None => "",
+            Option::None => "",
         };
 
         Text::new(hand, Point::new(36, 0))
@@ -117,23 +142,23 @@ impl super::State for Info {
             }
             Message::MatrixKeyPress(i, j) => {
                 self.last_matrix = Some(Event::Press(i, j));
-                if !self.usb_connected {
-                    Some(Message::SecondaryKeyPress(i, 13 - j))
+                self.press().add(if !self.usb_connected {
+                    One(Message::SecondaryKeyPress(i, 13 - j))
                 } else {
                     None
-                }
+                })
             }
             Message::MatrixKeyRelease(i, j) => {
                 self.last_matrix = Some(Event::Release(i, j));
                 if !self.usb_connected {
-                    Some(Message::SecondaryKeyRelease(i, 13 - j))
+                    One(Message::SecondaryKeyRelease(i, 13 - j))
                 } else {
                     None
                 }
             }
             Message::CurrentLayer(layer) => {
                 self.current_layer = layer;
-                Some(Message::SecondaryCurrentLayer(layer))
+                One(Message::SecondaryCurrentLayer(layer))
             }
             Message::SecondaryCurrentLayer(layer) => {
                 self.current_layer = layer;
@@ -155,7 +180,8 @@ impl super::State for Info {
                 self.ctrl_held = false;
                 None
             }
-            Message::Ping => Some(Message::Pong),
+            Message::Ping => One(Message::Pong),
+            Message::UpdateDisplay => self.tick(),
             _ => None,
         }
     }

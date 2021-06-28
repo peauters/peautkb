@@ -16,7 +16,7 @@ const MENU : &[&[MenuItem]] = &[
     &[i("info", Message::DisplaySelect(DisplayedState::Info)), i("bongo", Message::DisplaySelect(DisplayedState::Bongo)), i("leds", Message::DisplaySelect(DisplayedState::Leds))],
     &[i("info", Message::SecondaryDisplaySelect(DisplayedState::Info)), i("bongo", Message::SecondaryDisplaySelect(DisplayedState::Bongo)), i("leds", Message::SecondaryDisplaySelect(DisplayedState::Leds))],
     &[i("default", Message::SetDefaultLayer(0)), i("cs", Message::SetDefaultLayer(Layer::CS as usize))],
-    &[i("off", Message::LED(Action::SetMode(leds::Mode::Off))), smn("solid", 6, DisplayedState::Leds, Message::LED(Action::SetMode(Mode::Solid))), i("wheel", Message::LED(Action::SetMode(leds::Mode::Wheel)))],
+    &[i("off", Message::LED(Action::SetMode(leds::Mode::Off))), smn("solid", 6, DisplayedState::Leds, Message::LED(Action::SetMode(Mode::Solid))), i("wheel", Message::LED(Action::SetMode(leds::Mode::Wheel))), i("fade", Message::LED(Action::SetMode(leds::Mode::Fade)))],
     &[d("red", Message::LED(Action::DecrementRed), Message::LED(Action::IncrementRed)), d("green", Message::LED(Action::DecrementGreen), Message::LED(Action::IncrementGreen)), d("blue", Message::LED(Action::DecrementBlue), Message::LED(Action::IncrementBlue))]];
 
 #[derive(Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]

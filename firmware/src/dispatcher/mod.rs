@@ -104,6 +104,8 @@ pub enum Message {
     Bongo,
     LED(leds::Action),
     SecondaryLED(leds::Action),
+    Sleep,
+    Wake,
 }
 
 pub enum MessageType {

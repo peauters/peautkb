@@ -18,6 +18,7 @@ use numtoa::NumToA;
 use smart_leds::RGB8;
 
 mod driver;
+mod fade;
 mod off;
 mod solid;
 mod wheel;
@@ -33,6 +34,7 @@ pub enum Mode {
     Off,
     Wheel,
     Solid,
+    Fade,
 }
 
 impl From<Mode> for &str {
@@ -41,6 +43,7 @@ impl From<Mode> for &str {
             Mode::Off => "off",
             Mode::Wheel => "wheel",
             Mode::Solid => "solid",
+            Mode::Fade => "fade",
         }
     }
 }
@@ -64,13 +67,19 @@ struct LEDMatrix {
     underglow: [RGB8; 6],
 }
 
+impl LEDMatrix {
+    fn iter(self) -> Iter {
+        Iter { matrix: self, i: 0 }
+    }
+}
+
 impl IntoIterator for LEDMatrix {
     type Item = RGB8;
 
     type IntoIter = Iter;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter { matrix: self, i: 0 }
+        self.iter()
     }
 }
 
@@ -83,25 +92,25 @@ impl Iterator for Iter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.i < 32 {
-            let next = match self.i {
-                0 => self.matrix.underglow[2],
-                1..=3 => self.matrix.keys[0][7 - self.i],
-                4 => self.matrix.underglow[1],
-                5..=6 => self.matrix.keys[0][8 - self.i],
-                7 => self.matrix.underglow[0],
-                8..=9 => self.matrix.keys[0][9 - self.i],
-                10..=16 => self.matrix.keys[1][self.i - 10],
-                17..=18 => self.matrix.keys[2][22 - self.i],
-                19 => self.matrix.underglow[4],
-                20..=21 => self.matrix.keys[2][23 - self.i],
-                22 => self.matrix.underglow[3],
-                23..=24 => self.matrix.keys[2][24 - self.i],
-                25..=29 => self.matrix.thumb[self.i - 25],
-                30 => self.matrix.underglow[5],
-                _ => (0, 0, 0).into(),
-            };
+            let i = self.i;
             self.i += 1;
-            Some(next)
+            match i {
+                0 => Some(self.matrix.underglow[2]),
+                1..=3 => Some(self.matrix.keys[0][7 - i]),
+                4 => Some(self.matrix.underglow[1]),
+                5..=6 => Some(self.matrix.keys[0][8 - i]),
+                7 => Some(self.matrix.underglow[0]),
+                8..=9 => Some(self.matrix.keys[0][9 - i]),
+                10..=16 => Some(self.matrix.keys[1][i - 10]),
+                17..=18 => Some(self.matrix.keys[2][22 - i]),
+                19 => Some(self.matrix.underglow[4]),
+                20..=21 => Some(self.matrix.keys[2][23 - i]),
+                22 => Some(self.matrix.underglow[3]),
+                23..=24 => Some(self.matrix.keys[2][24 - i]),
+                25..=29 => Some(self.matrix.thumb[i - 25]),
+                30 => Some(self.matrix.underglow[5]),
+                _ => None,
+            }
         } else {
             None
         }
@@ -119,6 +128,8 @@ pub struct LEDs {
     solid_rgb: solid::Solid,
     off: off::Off,
     wheel: wheel::Wheel,
+    fade: fade::FadeAfterRelease,
+    sleep: bool,
 }
 
 impl LEDs {
@@ -148,6 +159,8 @@ impl LEDs {
             solid_rgb: solid::Solid::new(),
             off: off::Off::new(),
             wheel: wheel::Wheel::new(),
+            fade: fade::FadeAfterRelease::new(),
+            sleep: false,
         }
     }
 
@@ -157,10 +170,12 @@ impl LEDs {
     }
 
     fn update_leds(&mut self) {
-        match self.mode {
-            Mode::Off => self.off(),
-            Mode::Solid => self.solid(),
-            Mode::Wheel => self.wheel(),
+        match (self.sleep, self.mode) {
+            (true, _) => (),
+            (_, Mode::Off) => self.off(),
+            (_, Mode::Solid) => self.solid(),
+            (_, Mode::Wheel) => self.wheel(),
+            (_, Mode::Fade) => self.fade(),
         }
     }
 
@@ -182,6 +197,11 @@ impl LEDs {
 
     fn wheel(&mut self) {
         let matrix = self.wheel.next_matrix(self.last);
+        self.write_all(matrix);
+    }
+
+    fn fade(&mut self) {
+        let matrix = self.fade.next_matrix(self.last);
         self.write_all(matrix);
     }
 
@@ -240,6 +260,19 @@ impl State for LEDs {
             }
             Message::LateInit => {
                 self.choose_mode(self.mode);
+                None
+            }
+            Message::MatrixKeyRelease(i, j) => {
+                self.fade.key_release(i as usize, j as usize);
+                None
+            }
+            Message::Sleep => {
+                self.off();
+                self.sleep = true;
+                None
+            }
+            Message::Wake => {
+                self.sleep = false;
                 None
             }
             _ => None,
