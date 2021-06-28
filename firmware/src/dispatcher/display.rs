@@ -22,7 +22,7 @@ type DisplayType = GraphicsMode<
 
 pub struct OLED {
     display: DisplayType,
-    initd: bool,
+    sleep: bool,
 }
 
 impl OLED {
@@ -36,12 +36,12 @@ impl OLED {
         let interface = I2CDIBuilder::new().init(i2c);
         OLED {
             display: Builder::new().connect(interface).into(),
-            initd: false,
+            sleep: true,
         }
     }
 
     pub fn display<S: super::State>(&mut self, state: &mut S) {
-        if self.initd {
+        if !self.sleep {
             state.write_to_display(&mut self.display);
         }
     }
@@ -69,9 +69,19 @@ impl OLED {
         self.display.init().unwrap();
         self.display.clear();
         self.display.flush().unwrap();
-        self.initd = true;
+        self.sleep = false;
 
         defmt::info!("done");
+    }
+
+    fn sleep(&mut self) {
+        self.display.display_on(false).unwrap();
+        self.sleep = true;
+    }
+
+    fn wake(&mut self) {
+        self.display.display_on(true).unwrap();
+        self.sleep = false;
     }
 }
 
@@ -83,6 +93,8 @@ impl super::State for OLED {
             Message::LateInit => self.init(),
             Message::YouArePrimary => self.is_left(),
             Message::YouAreSecondary => self.is_right(),
+            Message::Sleep => self.sleep(),
+            Message::Wake => self.wake(),
             _ => (),
         }
 
